@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/leohakim/django-ai-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/leohakim/django-ai-harness/actions/workflows/ci.yml)
 
-- **Bootstrap:** [cookiecutter-django](https://github.com/cookiecutter/cookiecutter-django) at a **pinned commit** (override with `COOKIECUTTER_DJANGO_REF`) + **overlay** idempotente
+This repo is **not** a fork of cookiecutter-django. It uses **[cookiecutter-django](https://github.com/cookiecutter/cookiecutter-django)** at a **pinned commit** (override with `COOKIECUTTER_DJANGO_REF` to track newer revisions) and then applies an **idempotent overlay** with DX + architecture conventions.
 
 Practices are inspired by Adam Johnson’s *Boost Your Django DX* (kaizen / tooling / settings / migrations / checks), modernized for 2026 (`uv`, Ruff, etc.), plus [HackSoft Django Styleguide](https://github.com/HackSoftware/Django-Styleguide) for services/selectors.
 
