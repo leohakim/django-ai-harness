@@ -16,3 +16,7 @@ Use `config/settings/base.py`, `local.py`, `production.py`, `test.py`.
 ## Local DX toggles
 
 Local settings may enable debug toolbar, browser-reload, extensions, and read-only shell helpers. Keep those out of production settings.
+
+## PgBouncer (opt-in)
+
+When `USE_PGBOUNCER=True`, overlay hooks set `CONN_MAX_AGE=0` and `DISABLE_SERVER_SIDE_CURSORS=True` for transaction pooling. See `knowledge/dx-practices/postgres-pooling.md`.

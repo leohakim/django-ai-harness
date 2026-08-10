@@ -10,9 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-OVERLAY_VERSION = "1.0.0"
+OVERLAY_VERSION = "1.1.0"
 MARKER_BEGIN = "# >>> django-ai-harness"
 MARKER_END = "# <<< django-ai-harness"
+MARKER_BEGIN_PGBOUNCER = "# >>> django-ai-harness:pgbouncer"
+MARKER_END_PGBOUNCER = "# <<< django-ai-harness:pgbouncer"
+PGBOUNCER_ENV_MARKER_BEGIN = "# >>> django-ai-harness:pgbouncer"
+PGBOUNCER_ENV_MARKER_END = "# <<< django-ai-harness:pgbouncer"
 HTML_MARKER_BEGIN = "<!-- >>> django-ai-harness -->"
 HTML_MARKER_END = "<!-- <<< django-ai-harness -->"
 
@@ -182,15 +186,18 @@ def patch_base_settings_notes(project_root: Path) -> bool:
 
 
 def add_seed_command(project_root: Path, package: str) -> bool:
-    base = project_root / package / "management" / "commands"
-    init1 = project_root / package / "management" / "__init__.py"
-    init2 = base / "__init__.py"
+    """Install seed_database under users (INSTALLED_APPS), not the bare project package."""
+    base = project_root / package / "users" / "management" / "commands"
+    inits = [
+        project_root / package / "users" / "management" / "__init__.py",
+        base / "__init__.py",
+    ]
     changed = False
-    for init in (init1, init2):
+    for init in inits:
         if write_file(init, ""):
             changed = True
     cmd = base / "seed_database.py"
-    content = '''"""Seed local/dev database with Factory Boy (customize per project)."""
+    content = f'''"""Seed local/dev database with Factory Boy (customize per project)."""
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -213,9 +220,18 @@ class Command(BaseCommand):
 
         users = UserFactory.create_batch(3)
         self.stdout.write(self.style.SUCCESS(f"Created {{len(users)}} users"))
-'''.format(package=package)
+'''
     if write_file(cmd, content):
         changed = True
+    legacy = project_root / package / "management" / "commands" / "seed_database.py"
+    if legacy.exists():
+        try:
+            text = legacy.read_text(encoding="utf-8")
+            if "Seed the database with development data" in text:
+                legacy.unlink()
+                changed = True
+        except OSError:
+            pass
     return changed
 
 
@@ -260,6 +276,7 @@ See harness knowledge: `knowledge/architecture/hacksoft.md` in the django-ai-har
 - Keep Ruff + pre-commit green
 - Prefer `seed_database` + Factory Boy for local data
 - Re-apply overlay after harness upgrades
+- Optional low-RAM Postgres path: PgBouncer templates in `compose/pgbouncer/` (see harness `knowledge/dx-practices/postgres-pooling.md`)
 
 ## Skills
 
@@ -277,6 +294,7 @@ def add_project_doc(project_root: Path) -> bool:
 This project includes the django-ai-harness overlay.
 
 - Re-apply: `python /path/to/django-ai-harness/overlay/apply.py .`
+- Opt-in PgBouncer: add `--with-pgbouncer` (keeps PostgreSQL; see `compose/pgbouncer/README.md`)
 - Docs: https://github.com/leohakim/django-ai-harness
 '''
     return write_file(project_root / "docs" / "django-ai-harness.md", content)
@@ -332,13 +350,134 @@ Tests should mirror layers under `tests/services`, `tests/selectors`, `tests/api
     return changed
 
 
-def write_marker(project_root: Path) -> None:
+def write_marker(project_root: Path, *, with_pgbouncer: bool = False) -> None:
+    path = project_root / ".django-ai-harness.json"
+    previous_pgbouncer = False
+    if path.exists():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+            previous_pgbouncer = bool(
+                previous.get("features", {}).get("pgbouncer", False),
+            )
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            previous_pgbouncer = False
     data = {
         "overlay_version": OVERLAY_VERSION,
         "harness": "django-ai-harness",
+        "features": {
+            # Re-applying without the flag must not silently clear an enabled opt-in.
+            "pgbouncer": with_pgbouncer or previous_pgbouncer,
+        },
     }
-    path = project_root / ".django-ai-harness.json"
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def add_pgbouncer_templates(project_root: Path, harness_root: Path) -> bool:
+    """Install opt-in PgBouncer compose assets (always; activation is env/flag)."""
+    src_root = harness_root / "overlay" / "templates" / "pgbouncer"
+    if not src_root.is_dir():
+        die(f"missing pgbouncer templates at {src_root}")
+
+    changed = False
+    mapping = {
+        "README.md": project_root / "compose" / "pgbouncer" / "README.md",
+        "entrypoint.sh": project_root / "compose" / "pgbouncer" / "entrypoint.sh",
+        "pgbouncer.ini": project_root / "compose" / "pgbouncer" / "pgbouncer.ini",
+        "userlist.txt.example": project_root / "compose" / "pgbouncer" / "userlist.txt.example",
+        "postgres/tuning-small.conf": project_root
+        / "compose"
+        / "pgbouncer"
+        / "postgres"
+        / "tuning-small.conf",
+        "postgres/tuning-medium.conf": project_root
+        / "compose"
+        / "pgbouncer"
+        / "postgres"
+        / "tuning-medium.conf",
+        "docker-compose.pgbouncer.yml": project_root / "docker-compose.pgbouncer.yml",
+    }
+    for rel, dest in mapping.items():
+        src = src_root / rel
+        if not src.exists():
+            die(f"missing template file: {src}")
+        if write_file(dest, src.read_text(encoding="utf-8")):
+            changed = True
+        if dest.name == "entrypoint.sh":
+            dest.chmod(dest.stat().st_mode | 0o111)
+    return changed
+
+
+def patch_pgbouncer_settings(project_root: Path) -> bool:
+    """Env-gated Django settings for transaction pooling (safe when USE_PGBOUNCER=False)."""
+    body = '''# Opt-in PgBouncer (transaction pooling). Keep ENGINE=postgresql.
+# When USE_PGBOUNCER=True, point POSTGRES_HOST/PORT at the pooler and migrate via direct Postgres.
+if env.bool("USE_PGBOUNCER", default=False):
+    DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=0)
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+'''
+    changed = False
+    for rel in ("production.py", "local.py"):
+        path = project_root / "config" / "settings" / rel
+        if path.exists() and upsert_marked_block(
+            path,
+            MARKER_BEGIN_PGBOUNCER,
+            MARKER_END_PGBOUNCER,
+            body,
+        ):
+            changed = True
+    return changed
+
+
+def enable_pgbouncer_envs(project_root: Path) -> bool:
+    """Flip .envs to route the app through PgBouncer (opt-in activation)."""
+    django_body = """# django-ai-harness PgBouncer (transaction pooling)
+USE_PGBOUNCER=True
+CONN_MAX_AGE=0
+"""
+    direct_body = """# Direct Postgres (migrations / DDL). App traffic uses POSTGRES_HOST above.
+POSTGRES_HOST_DIRECT=postgres
+POSTGRES_PORT_DIRECT=5432
+"""
+    changed = False
+    for env_name in (".local", ".production"):
+        postgres = project_root / ".envs" / env_name / ".postgres"
+        django = project_root / ".envs" / env_name / ".django"
+
+        if postgres.exists():
+            text = postgres.read_text(encoding="utf-8")
+            if PGBOUNCER_ENV_MARKER_BEGIN in text and PGBOUNCER_ENV_MARKER_END in text:
+                text = re.sub(
+                    re.escape(PGBOUNCER_ENV_MARKER_BEGIN)
+                    + r".*?"
+                    + re.escape(PGBOUNCER_ENV_MARKER_END)
+                    + r"\n?",
+                    "",
+                    text,
+                    count=1,
+                    flags=re.DOTALL,
+                )
+            new_text = re.sub(r"(?m)^POSTGRES_HOST=.*$", "POSTGRES_HOST=pgbouncer", text)
+            new_text = re.sub(r"(?m)^POSTGRES_PORT=.*$", "POSTGRES_PORT=6432", new_text)
+            if not new_text.endswith("\n"):
+                new_text += "\n"
+            new_text += (
+                f"\n{PGBOUNCER_ENV_MARKER_BEGIN}\n"
+                f"{direct_body.rstrip()}\n"
+                f"{PGBOUNCER_ENV_MARKER_END}\n"
+            )
+            if new_text != postgres.read_text(encoding="utf-8"):
+                postgres.write_text(new_text, encoding="utf-8")
+                changed = True
+
+        if django.exists():
+            if upsert_marked_block(
+                django,
+                PGBOUNCER_ENV_MARKER_BEGIN,
+                PGBOUNCER_ENV_MARKER_END,
+                django_body,
+            ):
+                changed = True
+    return changed
 
 
 def ensure_linear_migration_files(project_root: Path) -> bool:
@@ -372,12 +511,19 @@ def ensure_linear_migration_files(project_root: Path) -> bool:
     return changed
 
 
-def apply(project_root: Path, harness_root: Path) -> None:
+def apply(
+    project_root: Path,
+    harness_root: Path,
+    *,
+    with_pgbouncer: bool = False,
+) -> None:
     project_root = project_root.resolve()
     harness_root = harness_root.resolve()
     print(f"Applying overlay v{OVERLAY_VERSION} to {project_root}")
     package = find_project_package(project_root)
     print(f"Detected project package: {package}")
+    if with_pgbouncer:
+        print("PgBouncer opt-in: enabled (--with-pgbouncer)")
 
     ensure_dev_deps(project_root)
     changes = [
@@ -390,11 +536,20 @@ def apply(project_root: Path, harness_root: Path) -> None:
         ("project doc", add_project_doc(project_root)),
         ("app skeleton", add_app_skeleton(project_root)),
         ("linear migration files", ensure_linear_migration_files(project_root)),
+        ("pgbouncer templates", add_pgbouncer_templates(project_root, harness_root)),
+        ("pgbouncer settings", patch_pgbouncer_settings(project_root)),
     ]
-    write_marker(project_root)
+    if with_pgbouncer:
+        changes.append(("pgbouncer envs", enable_pgbouncer_envs(project_root)))
+    write_marker(project_root, with_pgbouncer=with_pgbouncer)
     for label, changed in changes:
         print(f" - {label}: {'updated' if changed else 'unchanged'}")
     print("Done. Next: `uv sync` && `uv run python manage.py check`")
+    if with_pgbouncer:
+        print(
+            "PgBouncer: merge docker-compose.pgbouncer.yml and migrate via "
+            "POSTGRES_HOST=postgres (see compose/pgbouncer/README.md)",
+        )
 
 
 def main() -> None:
@@ -406,8 +561,16 @@ def main() -> None:
         default=Path(__file__).resolve().parents[1],
         help="Path to django-ai-harness checkout",
     )
+    parser.add_argument(
+        "--with-pgbouncer",
+        action="store_true",
+        help=(
+            "Activate PgBouncer in .envs (POSTGRES_HOST=pgbouncer, USE_PGBOUNCER=True). "
+            "Templates and settings hooks are always installed."
+        ),
+    )
     args = parser.parse_args()
-    apply(args.project_root, args.harness_root)
+    apply(args.project_root, args.harness_root, with_pgbouncer=args.with_pgbouncer)
 
 
 if __name__ == "__main__":

@@ -85,3 +85,11 @@ VERSION_CHECKS = {
 # Prefer IPython when available (django-extensions shell_plus)
 SHELL_PLUS = "ipython"
 # <<< django-ai-harness
+
+# >>> django-ai-harness:pgbouncer
+# Opt-in PgBouncer (transaction pooling). Keep ENGINE=postgresql.
+# When USE_PGBOUNCER=True, point POSTGRES_HOST/PORT at the pooler and migrate via direct Postgres.
+if env.bool("USE_PGBOUNCER", default=False):
+    DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=0)
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+# <<< django-ai-harness:pgbouncer

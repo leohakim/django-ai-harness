@@ -45,7 +45,7 @@ You can keep this clone permanently: it is your source of practices, overlay, an
 
 The script will:
 
-1. Run `cookiecutter` against **`gh:cookiecutter/cookiecutter-django`** (latest `master`).
+1. Run `cookiecutter` against **`gh:cookiecutter/cookiecutter-django`** at the **pinned commit** in the script (override with `COOKIECUTTER_DJANGO_REF`).
 2. Apply the **overlay** from this repo (`overlay/apply.py`).
 3. Print next commands.
 
@@ -80,6 +80,29 @@ Sensible defaults for API + DX (what `new-project.sh` uses in non-interactive mo
 | `open_source_license` | `MIT` |
 
 > cookiecutter-django expects **PostgreSQL** for real runs. Use Docker Compose from the generated project, or point `DATABASE_URL` at a local Postgres.
+
+### Optional: PgBouncer (still PostgreSQL)
+
+Enable when you expect many workers on a small/medium VPS (RAM pressure from Postgres connections). This does **not** change the DB engine.
+
+```bash
+# Forces USE_DOCKER=y (Compose postgres + pgbouncer services)
+WITH_PGBOUNCER=1 ./scripts/new-project.sh ~/Projects/my_shop "My Shop"
+
+# Or on an existing project (templates always install; this flag flips .envs):
+python overlay/apply.py ~/Projects/my_shop --harness-root . --with-pgbouncer
+```
+
+Then:
+
+```bash
+docker compose -f docker-compose.local.yml -f docker-compose.pgbouncer.yml up -d
+# migrate against Postgres directly (bypass pooler)
+POSTGRES_HOST=postgres POSTGRES_PORT=5432 USE_PGBOUNCER=False \
+  uv run python manage.py migrate
+```
+
+Details: [../knowledge/dx-practices/postgres-pooling.md](../knowledge/dx-practices/postgres-pooling.md).
 
 ## 4. Install dependencies and run
 

@@ -57,12 +57,12 @@ django-ai-harness/
 
 ## Requirements
 
-- Python 3.12+ (cookiecutter-django may request a specific minor; follow its `.python-version`)
+- Python matching the generated project’s `.python-version` (cookiecutter pin currently targets **3.14**)
 - [uv](https://docs.astral.sh/uv/)
 - [cookiecutter](https://cookiecutter.readthedocs.io/) (`brew install cookiecutter` or `uv tool install cookiecutter`)
 - Git
+- Docker (required when using `WITH_PGBOUNCER=1` / Compose-based local Postgres)
 - Optional: [Cursor](https://cursor.com/) to use the bundled skills
-- Optional: Docker if you enable Docker in cookiecutter prompts
 
 ---
 
@@ -102,6 +102,7 @@ The harness overlay then adds / standardizes:
 - `seed_database` management command pattern + pending-migrations test
 - HackSoft app skeleton (`services.py`, `selectors.py`, thin API stubs)
 - Documentation of settings anti-patterns **inside** `config/settings/*` (we keep the split)
+- Opt-in **PgBouncer** templates + settings hooks (PostgreSQL stays the engine; see [knowledge/dx-practices/postgres-pooling.md](knowledge/dx-practices/postgres-pooling.md))
 
 Details: [docs/overlay.md](docs/overlay.md).
 

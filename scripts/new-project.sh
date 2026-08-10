@@ -27,6 +27,18 @@ RAW_SLUG="$(basename "${TARGET}")"
 # cookiecutter-django requires a valid Python identifier
 SLUG="${RAW_SLUG//-/_}"
 SLUG="${SLUG//./_}"
+
+# PgBouncer needs Compose postgres; force Docker when opted in.
+USE_DOCKER="${USE_DOCKER:-n}"
+WITH_PGBOUNCER_FLAG=0
+if [[ "${WITH_PGBOUNCER:-0}" == "1" || "${WITH_PGBOUNCER:-}" == "y" || "${WITH_PGBOUNCER:-}" == "yes" ]]; then
+  WITH_PGBOUNCER_FLAG=1
+  if [[ "${USE_DOCKER}" != "y" ]]; then
+    echo "==> WITH_PGBOUNCER=1 requires Docker Compose; setting USE_DOCKER=y"
+    USE_DOCKER="y"
+  fi
+fi
+
 mkdir -p "${PARENT}"
 TMP="$(mktemp -d)"
 cleanup() { rm -rf "${TMP}"; }
@@ -45,7 +57,7 @@ cookiecutter "gh:cookiecutter/cookiecutter-django" --checkout "${COOKIECUTTER_DJ
   timezone="UTC" \
   windows="n" \
   editor="None" \
-  use_docker="${USE_DOCKER:-n}" \
+  use_docker="${USE_DOCKER}" \
   cloud_provider="None" \
   mail_service="Other SMTP" \
   rest_api="DRF" \
@@ -66,11 +78,21 @@ if [[ ! -d "${GENERATED}" ]]; then
 fi
 
 echo "==> Applying django-ai-harness overlay"
-python3 "${HARNESS_ROOT}/overlay/apply.py" "${GENERATED}" --harness-root "${HARNESS_ROOT}"
+OVERLAY_ARGS=("${GENERATED}" --harness-root "${HARNESS_ROOT}")
+if [[ "${WITH_PGBOUNCER_FLAG}" == "1" ]]; then
+  OVERLAY_ARGS+=(--with-pgbouncer)
+fi
+python3 "${HARNESS_ROOT}/overlay/apply.py" "${OVERLAY_ARGS[@]}"
 
 echo "==> Moving to ${TARGET}"
 # Generated folder uses sanitized slug; move to the user-requested path
 mv "${GENERATED}" "${TARGET}"
+
+if [[ "${WITH_PGBOUNCER_FLAG}" == "1" ]]; then
+  NEXT_COMPOSE=$'  docker compose -f docker-compose.local.yml -f docker-compose.pgbouncer.yml up -d\n  # migrate bypasses the pooler:\n  POSTGRES_HOST=postgres POSTGRES_PORT=5432 USE_PGBOUNCER=False uv run python manage.py migrate'
+else
+  NEXT_COMPOSE=$'  # If Docker was enabled:\n  # docker compose -f docker-compose.local.yml up -d\n  uv run python manage.py migrate'
+fi
 
 cat <<EOF
 
@@ -79,8 +101,9 @@ Project ready at: ${TARGET}
 Next:
   cd ${TARGET}
   uv sync
-  uv run python manage.py migrate
+${NEXT_COMPOSE}
   uv run python manage.py runserver
 
 Read: ${HARNESS_ROOT}/docs/getting-started.md
+$([ "${WITH_PGBOUNCER_FLAG}" = "1" ] && echo "PgBouncer: ${HARNESS_ROOT}/knowledge/dx-practices/postgres-pooling.md")
 EOF

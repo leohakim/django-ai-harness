@@ -23,6 +23,7 @@ This repository is an open-source **knowledge + overlay harness** for Django pro
 - Keep cookiecutter-django’s settings split (`config/settings/*`); apply book anti-patterns *inside* that split.
 - Business logic belongs in services/selectors, not views/serializers/signals/`save()`.
 - When changing overlay behavior, refresh `example/` and update docs.
+- PgBouncer is **opt-in** (`--with-pgbouncer` / `WITH_PGBOUNCER=1`); default stays plain PostgreSQL.
 
 ## Skills
 

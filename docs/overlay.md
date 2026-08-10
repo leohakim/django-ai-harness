@@ -8,6 +8,8 @@ Transform a fresh **cookiecutter-django** tree into a harness-compliant project 
 
 ```bash
 python overlay/apply.py /path/to/project --harness-root /path/to/django-ai-harness
+# Optional: activate PgBouncer envs (still PostgreSQL)
+python overlay/apply.py /path/to/project --harness-root /path/to/django-ai-harness --with-pgbouncer
 ```
 
 Properties:
@@ -23,16 +25,29 @@ Properties:
 | Agents | Adds/updates `AGENTS.md` |
 | Dependencies | Ensures DX packages in `pyproject.toml` dependency-groups.dev via `uv add --group dev` when available, else TOML edit |
 | Local settings | Enables browser-reload, Rich logging hints, django-read-only, version checks |
-| Commands | Adds `seed_database` management command under the project package |
+| Commands | Adds `seed_database` under the installed `users` app (`*/users/management/commands/`) |
 | Tests | Adds pending-migrations test module if missing |
 | Architecture | Copies `harness_templates/app_skeleton/` reference |
 | Docs | Adds `docs/django-ai-harness.md` short pointer |
+| PgBouncer (opt-in) | Always installs `compose/pgbouncer/` + `docker-compose.pgbouncer.yml` and env-gated settings hooks; `--with-pgbouncer` flips `.envs` to route via the pooler |
 
 ## What it deliberately does **not** change
 
 - Does not flatten `config/settings/{base,local,production,test}.py`
 - Does not remove Docker/CI choices from cookiecutter
 - Does not replace Ruff/pre-commit already provided upstream (extends carefully)
+- Does not change the database engine away from PostgreSQL
+
+## PgBouncer
+
+Keep Postgres; reduce connection RAM on small/medium hosts:
+
+```bash
+python overlay/apply.py /path/to/project --harness-root . --with-pgbouncer
+# or: WITH_PGBOUNCER=1 ./scripts/new-project.sh ~/Projects/my_app
+```
+
+See `knowledge/dx-practices/postgres-pooling.md` and `compose/pgbouncer/README.md` in generated projects.
 
 ## Settings bridge (book ↔ cookiecutter)
 

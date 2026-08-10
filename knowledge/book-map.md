@@ -23,5 +23,6 @@ This is a **mapping of themes**, not a reproduction of the book. Prefer public p
 | System checks / version checks | custom notes + `django-version-checks` | overlay |
 | Nested project package layout | cookiecutter-django two-tier layout | upstream |
 | Build your own tools | document custom pre-commit / checks pattern | `dx-practices/custom-tools.md` |
+| Low-RAM Postgres (pooling) | Opt-in PgBouncer + tuning presets; keep PG engine | `dx-practices/postgres-pooling.md`, overlay `--with-pgbouncer` |
 
 Updated edition themes (debuggers, Biome, Djade) are tracked in `knowledge/CHANGELOG-practices.md` as optional upgrades.
