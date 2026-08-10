@@ -19,6 +19,8 @@ jobs:
       - name: Install cookiecutter
         run: uv tool install cookiecutter
       - name: Refresh example (cookiecutter + overlay)
+        env:
+          COOKIECUTTER_DJANGO_REF: cdbe7265c79f43fd3e22c4527a97c8c7a5c72a5b
         run: |
           chmod +x scripts/*.sh
           ./scripts/refresh-example.sh

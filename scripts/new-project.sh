@@ -23,7 +23,10 @@ command -v cookiecutter >/dev/null || { echo "error: cookiecutter not found"; ex
 command -v uv >/dev/null || { echo "error: uv not found"; exit 1; }
 
 PARENT="$(dirname "${TARGET}")"
-SLUG="$(basename "${TARGET}")"
+RAW_SLUG="$(basename "${TARGET}")"
+# cookiecutter-django requires a valid Python identifier
+SLUG="${RAW_SLUG//-/_}"
+SLUG="${SLUG//./_}"
 mkdir -p "${PARENT}"
 TMP="$(mktemp -d)"
 cleanup() { rm -rf "${TMP}"; }
@@ -66,6 +69,7 @@ echo "==> Applying django-ai-harness overlay"
 python3 "${HARNESS_ROOT}/overlay/apply.py" "${GENERATED}" --harness-root "${HARNESS_ROOT}"
 
 echo "==> Moving to ${TARGET}"
+# Generated folder uses sanitized slug; move to the user-requested path
 mv "${GENERATED}" "${TARGET}"
 
 cat <<EOF

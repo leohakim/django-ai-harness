@@ -39,6 +39,10 @@ You can keep this clone permanently: it is your source of practices, overlay, an
 ./scripts/new-project.sh ~/Projects/my_shop
 ```
 
+> The directory basename becomes the Python package slug. Prefer underscores
+> (`my_shop`) over hyphens (`my-shop`); the script sanitizes hyphens to underscores
+> when needed, but the target path is kept as you passed it.
+
 The script will:
 
 1. Run `cookiecutter` against **`gh:cookiecutter/cookiecutter-django`** (latest `master`).
