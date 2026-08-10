@@ -1,5 +1,12 @@
 # Practices changelog
 
+## 2026-08-10 — harness v1.1.1
+
+- Default `USE_DOCKER=y` so quickstart migrate path works with Compose
+- Scaffold files (`AGENTS.md`, seed, skeleton) created only if missing
+- Wire Rich console logging in local settings
+- CI asserts `seed_database`; upstream workflow tracks cookiecutter `master`
+
 ## 2026-08-10 — harness v1.1
 
 - Opt-in **PgBouncer** templates + env-gated settings (`WITH_PGBOUNCER=1` / `--with-pgbouncer`)

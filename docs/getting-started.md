@@ -71,7 +71,7 @@ Sensible defaults for API + DX (what `new-project.sh` uses in non-interactive mo
 
 | Prompt | Suggested |
 |---|---|
-| `use_docker` | `y` if you want Postgres/Redis via Compose; `n` for simplest local SQLite-less path (still needs Postgres typically) |
+| `use_docker` | `y` (script default) for Compose Postgres/Redis; `USE_DOCKER=n` only if you manage Postgres yourself |
 | `rest_api` | `DRF` (HackSoft APIs fit well) |
 | `ci_tool` | `Github` |
 | `use_celery` | `n` until you need it |
@@ -109,12 +109,14 @@ Details: [../knowledge/dx-practices/postgres-pooling.md](../knowledge/dx-practic
 ```bash
 cd ~/Projects/my_shop
 uv sync
-# If Docker was enabled:
-# docker compose -f docker-compose.local.yml up -d
+# Default scaffold uses Docker (USE_DOCKER=y):
+docker compose -f docker-compose.local.yml up -d
 uv run python manage.py migrate
 uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
+
+If you created the project with `USE_DOCKER=n`, export `POSTGRES_*` (or `DATABASE_URL`) before migrate — cookiecutter settings do not use SQLite for the default database.
 
 Open the site (usually `http://127.0.0.1:8000/`). With the overlay, template/static changes can auto-reload via **django-browser-reload** when configured in local settings.
 

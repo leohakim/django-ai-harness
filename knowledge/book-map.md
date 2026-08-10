@@ -12,7 +12,7 @@ This is a **mapping of themes**, not a reproduction of the book. Prefer public p
 | Debug toolbar | Already in cookiecutter-django local | upstream |
 | Watchman / autoreload | Werkzeug watchdog already; add browser-reload | overlay |
 | django-browser-reload | Add + wire middleware/urls in local | overlay |
-| Rich terminal output | `django-rich` / Rich logging | overlay |
+| Rich terminal output | `django-rich` + RichHandler logging in local settings | overlay |
 | EditorConfig + pre-commit | Already present; keep | upstream |
 | Black / isort / Flake8 | **Ruff** format+lint (upstream) | upstream |
 | pyupgrade / django-upgrade | Ruff UP + django-upgrade hook | upstream |

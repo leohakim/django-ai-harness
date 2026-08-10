@@ -15,20 +15,21 @@ python overlay/apply.py /path/to/project --harness-root /path/to/django-ai-harne
 Properties:
 
 - **Idempotent**: safe to run multiple times
-- **Non-destructive to app domain code**: additive patches with markers
+- **Additive patches** use markers (`# >>> django-ai-harness`)
+- **Scaffold files** (`AGENTS.md`, `seed_database`, app skeleton, etc.) are created **only if missing** so re-apply does not clobber edits
 - Writes a marker file `.django-ai-harness.json` with version metadata
 
 ## What it changes
 
 | Area | Action |
 |---|---|
-| Agents | Adds/updates `AGENTS.md` |
-| Dependencies | Ensures DX packages in `pyproject.toml` dependency-groups.dev via `uv add --group dev` when available, else TOML edit |
-| Local settings | Enables browser-reload, Rich logging hints, django-read-only, version checks |
-| Commands | Adds `seed_database` under the installed `users` app (`*/users/management/commands/`) |
+| Agents | Adds `AGENTS.md` if missing |
+| Dependencies | Ensures DX packages via `uv add --group dev` (requires `uv` on PATH) |
+| Local settings | Enables browser-reload, Rich console logging, django-read-only, version checks |
+| Commands | Adds `seed_database` under the installed `users` app if missing |
 | Tests | Adds pending-migrations test module if missing |
-| Architecture | Copies `harness_templates/app_skeleton/` reference |
-| Docs | Adds `docs/django-ai-harness.md` short pointer |
+| Architecture | Copies `harness_templates/app_skeleton/` reference files if missing |
+| Docs | Adds `docs/django-ai-harness.md` if missing |
 | PgBouncer (opt-in) | Always installs `compose/pgbouncer/` + `docker-compose.pgbouncer.yml` and env-gated settings hooks; `--with-pgbouncer` flips `.envs` to route via the pooler |
 
 ## What it deliberately does **not** change

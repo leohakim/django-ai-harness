@@ -73,15 +73,19 @@ django-ai-harness/
 git clone https://github.com/leohakim/django-ai-harness.git
 cd django-ai-harness
 
-# 2) Create a project (cookiecutter-django latest + overlay)
+# 2) Create a project (pinned cookiecutter-django + overlay; Docker on by default)
 ./scripts/new-project.sh ~/Projects/my_app
 
-# 3) Enter the project and sync
+# 3) Enter the project, sync, start Postgres, migrate
 cd ~/Projects/my_app
 uv sync
+docker compose -f docker-compose.local.yml up -d
 uv run python manage.py migrate
 uv run python manage.py runserver
 ```
+
+> Need a lighter bootstrap without Compose? `USE_DOCKER=n ./scripts/new-project.sh …`  
+> then supply `POSTGRES_*` (or `DATABASE_URL`) yourself before migrate.
 
 Full walkthrough (prompts, first HackSoft app, checklist): **[docs/getting-started.md](docs/getting-started.md)**.
 

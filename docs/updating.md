@@ -22,11 +22,12 @@ Review the diff: overlay uses markers like `# >>> django-ai-harness` so you can 
 
 ## Track cookiecutter-django upgrades
 
-1. Regenerate `example/` with `scripts/refresh-example.sh`.
+1. Compare against tip: `COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh`
 2. Fix overlay if upstream renamed files/settings.
-3. Document breaking changes in `knowledge/CHANGELOG-practices.md`.
+3. Bump the default pin in `scripts/new-project.sh` / `scripts/refresh-example.sh` when ready.
+4. Document breaking changes in `knowledge/CHANGELOG-practices.md`.
 
-CI workflow `upstream-cookiecutter.yml` helps detect drift on a schedule.
+CI workflow `upstream-cookiecutter.yml` regenerates against **`master`** on a schedule so tip drift surfaces even while day-to-day scripts stay pinned.
 
 ## Add a new practice
 

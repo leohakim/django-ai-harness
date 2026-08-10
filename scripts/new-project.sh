@@ -29,7 +29,8 @@ SLUG="${RAW_SLUG//-/_}"
 SLUG="${SLUG//./_}"
 
 # PgBouncer needs Compose postgres; force Docker when opted in.
-USE_DOCKER="${USE_DOCKER:-n}"
+# Default Docker on so the documented migrate path works out of the box.
+USE_DOCKER="${USE_DOCKER:-y}"
 WITH_PGBOUNCER_FLAG=0
 if [[ "${WITH_PGBOUNCER:-0}" == "1" || "${WITH_PGBOUNCER:-}" == "y" || "${WITH_PGBOUNCER:-}" == "yes" ]]; then
   WITH_PGBOUNCER_FLAG=1

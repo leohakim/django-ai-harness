@@ -16,11 +16,19 @@ jobs:
           python-version: "3.14"
       - name: Install cookiecutter
         run: uv tool install cookiecutter
-      - name: Try refresh example
+      - name: Refresh example against cookiecutter master tip
+        env:
+          # Intentional: detect drift vs pinned default used by new-project.sh
+          COOKIECUTTER_DJANGO_REF: master
         run: |
           chmod +x scripts/*.sh
           ./scripts/refresh-example.sh
-      - name: Show diff stat
+      - name: Show diff vs committed example
         run: |
           git status --short
           git diff --stat || true
+      - name: Fail if overlay cannot regenerate against master
+        run: |
+          test -f example/.django-ai-harness.json
+          test -f example/AGENTS.md
+          python3 -m py_compile overlay/apply.py

@@ -15,14 +15,14 @@ To intentionally track latest: `COOKIECUTTER_DJANGO_REF=master ./scripts/refresh
 ```text
 project_name / project_slug     = caller-provided
 description                     = "Project managed with django-ai-harness"
-author_name                     = "Your Name" (override)
+author_name                     = "django-ai-harness" (override with AUTHOR_NAME)
 domain_name                     = "example.com"
 open_source_license             = MIT
 username_type                   = email
 timezone                        = UTC
 windows                         = n
 editor                          = None
-use_docker                      = n   # set y for Compose-based local Postgres
+use_docker                      = y   # script default; USE_DOCKER=n to opt out
 postgresql_version              = 16
 cloud_provider                  = None
 mail_service                    = Other SMTP

@@ -42,8 +42,18 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: "5432"
         run: uv run python manage.py check --settings=config.settings.local
+      - name: seed_database command is registered
+        working-directory: example
+        env:
+          POSTGRES_DB: harness
+          POSTGRES_USER: harness
+          POSTGRES_PASSWORD: harness
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+        run: uv run python manage.py help seed_database
       - name: Docs presence
         run: |
           test -f README.md
           test -f docs/getting-started.md
           test -f knowledge/book-map.md
+          test -f knowledge/dx-practices/postgres-pooling.md

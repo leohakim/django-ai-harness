@@ -10,15 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-OVERLAY_VERSION = "1.1.0"
+OVERLAY_VERSION = "1.1.1"
 MARKER_BEGIN = "# >>> django-ai-harness"
 MARKER_END = "# <<< django-ai-harness"
 MARKER_BEGIN_PGBOUNCER = "# >>> django-ai-harness:pgbouncer"
 MARKER_END_PGBOUNCER = "# <<< django-ai-harness:pgbouncer"
 PGBOUNCER_ENV_MARKER_BEGIN = "# >>> django-ai-harness:pgbouncer"
 PGBOUNCER_ENV_MARKER_END = "# <<< django-ai-harness:pgbouncer"
-HTML_MARKER_BEGIN = "<!-- >>> django-ai-harness -->"
-HTML_MARKER_END = "<!-- <<< django-ai-harness -->"
 
 DEV_DEPS = [
     "ipython",
@@ -104,13 +102,18 @@ def write_file(path: Path, content: str) -> bool:
     return True
 
 
+def write_file_if_missing(path: Path, content: str) -> bool:
+    """Create a file only when absent so re-apply does not clobber user edits."""
+    if path.exists():
+        return False
+    return write_file(path, content)
+
+
 def ensure_dev_deps(project_root: Path) -> None:
     pyproject = project_root / "pyproject.toml"
     if not pyproject.exists():
         die("pyproject.toml missing — is this cookiecutter-django?")
     text = pyproject.read_text(encoding="utf-8")
-    missing = [dep for dep in DEV_DEPS if dep.replace("_", "-") not in text and dep not in text]
-    # also check hyphen/underscore variants already present loosely
     really_missing = []
     for dep in DEV_DEPS:
         if dep not in text and dep.replace("-", "_") not in text:
@@ -123,7 +126,7 @@ def ensure_dev_deps(project_root: Path) -> None:
     try:
         subprocess.run(cmd, cwd=project_root, check=True)
     except FileNotFoundError:
-        die("uv not found on PATH")
+        die("uv not found on PATH — install uv, then re-run the overlay")
     except subprocess.CalledProcessError as exc:
         die(f"uv add failed: {exc}")
 
@@ -154,6 +157,26 @@ VERSION_CHECKS = {{
 
 # Prefer IPython when available (django-extensions shell_plus)
 SHELL_PLUS = "ipython"
+
+# django-rich / Rich: clearer local console logs
+LOGGING = {{
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {{
+        "rich": {{"datefmt": "[%X]"}},
+    }},
+    "handlers": {{
+        "console": {{
+            "class": "rich.logging.RichHandler",
+            "formatter": "rich",
+            "rich_tracebacks": True,
+        }},
+    }},
+    "root": {{
+        "handlers": ["console"],
+        "level": "INFO",
+    }},
+}}
 """
     return upsert_marked_block(path, MARKER_BEGIN, MARKER_END, body)
 
@@ -221,7 +244,7 @@ class Command(BaseCommand):
         users = UserFactory.create_batch(3)
         self.stdout.write(self.style.SUCCESS(f"Created {{len(users)}} users"))
 '''
-    if write_file(cmd, content):
+    if write_file_if_missing(cmd, content):
         changed = True
     legacy = project_root / package / "management" / "commands" / "seed_database.py"
     if legacy.exists():
@@ -252,11 +275,12 @@ def test_no_pending_migrations():
 '''
     # Ensure tests package exists
     tests_init = project_root / package / "tests" / "__init__.py"
-    write_file(tests_init, "")
-    return write_file(path, content)
+    write_file_if_missing(tests_init, "")
+    return write_file_if_missing(path, content)
 
 
 def add_agents_md(project_root: Path, harness_root: Path) -> bool:
+    _ = harness_root  # reserved for future relative skill paths
     content = '''# AGENTS.md
 
 This project was bootstrapped with **cookiecutter-django** and **django-ai-harness**.
@@ -285,7 +309,7 @@ If Cursor skills from django-ai-harness are available, use:
 - `django-hacksoft` for feature work
 - `django-dx-review` before PRs
 '''
-    return write_file(project_root / "AGENTS.md", content)
+    return write_file_if_missing(project_root / "AGENTS.md", content)
 
 
 def add_project_doc(project_root: Path) -> bool:
@@ -297,7 +321,7 @@ This project includes the django-ai-harness overlay.
 - Opt-in PgBouncer: add `--with-pgbouncer` (keeps PostgreSQL; see `compose/pgbouncer/README.md`)
 - Docs: https://github.com/leohakim/django-ai-harness
 '''
-    return write_file(project_root / "docs" / "django-ai-harness.md", content)
+    return write_file_if_missing(project_root / "docs" / "django-ai-harness.md", content)
 
 
 def add_app_skeleton(project_root: Path) -> bool:
@@ -345,7 +369,7 @@ Tests should mirror layers under `tests/services`, `tests/selectors`, `tests/api
     }
     changed = False
     for rel, content in files.items():
-        if write_file(root / rel, content):
+        if write_file_if_missing(root / rel, content):
             changed = True
     return changed
 

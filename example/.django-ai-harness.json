@@ -1,5 +1,5 @@
 {
-  "overlay_version": "1.1.0",
+  "overlay_version": "1.1.1",
   "harness": "django-ai-harness",
   "features": {
     "pgbouncer": false

@@ -84,6 +84,26 @@ VERSION_CHECKS = {
 
 # Prefer IPython when available (django-extensions shell_plus)
 SHELL_PLUS = "ipython"
+
+# django-rich / Rich: clearer local console logs
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "rich": {"datefmt": "[%X]"},
+    },
+    "handlers": {
+        "console": {
+            "class": "rich.logging.RichHandler",
+            "formatter": "rich",
+            "rich_tracebacks": True,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+}
 # <<< django-ai-harness
 
 # >>> django-ai-harness:pgbouncer
