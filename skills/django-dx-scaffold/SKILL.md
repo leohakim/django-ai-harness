@@ -17,11 +17,9 @@ Confirm `uv` and `cookiecutter` are installed. If missing, help the user install
 
 1. Locate the django-ai-harness checkout (this skill’s repo root two levels up from `skills/django-dx-scaffold`, or ask the user for the path).
 2. Ask for target directory and project display name if not provided.
-3. Ask whether they need **PgBouncer** (low-RAM / many workers). If yes, set `WITH_PGBOUNCER=1` (this also forces Docker Compose).
-4. Run:
+3. Prefer the guided TUI for humans (`./scripts/new-project-tui.sh`). For automation, run:
 
 ```bash
-# standard
 ./scripts/new-project.sh <target_directory> "<Project Name>"
 
 # with PgBouncer + Docker

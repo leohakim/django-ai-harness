@@ -33,7 +33,17 @@ You can keep this clone permanently: it is your source of practices, overlay, an
 
 ## 2. Create the project
 
-### Option A — script (recommended)
+### Option A — Guided TUI (recommended for humans)
+
+```bash
+./scripts/new-project-tui.sh
+```
+
+Opens a **Textual** assistant (Spanish UI + English technical terms). Each step explains
+what you **add**, what you **leave out**, and the **implications** before generating
+cookiecutter-django + overlay.
+
+### Option B — Non-interactive script (agents / automation)
 
 ```bash
 ./scripts/new-project.sh ~/Projects/my_shop
@@ -49,13 +59,14 @@ The script will:
 2. Apply the **overlay** from this repo (`overlay/apply.py`).
 3. Print next commands.
 
-### Option B — Cursor agent
+### Option C — Cursor agent
 
 Open this repo in Cursor and ask:
 
-> Use the `django-dx-scaffold` skill to create a new Django project at `~/Projects/my_shop`.
+> Use the `django-dx-scaffold` skill to create a new Django project at `~/Projects/my_shop`
+> (prefer non-interactive script for agents; humans can use the TUI).
 
-### Option C — manual two-step
+### Option D — manual two-step
 
 ```bash
 cookiecutter gh:cookiecutter/cookiecutter-django

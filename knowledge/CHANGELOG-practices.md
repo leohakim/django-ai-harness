@@ -1,5 +1,10 @@
 # Practices changelog
 
+## 2026-08-10 — harness v1.2.0
+
+- Guided **Textual TUI** wizard (`./scripts/new-project-tui.sh`) with Spanish UI + English technical labels
+- Shared `scripts/lib/scaffold.py` used by TUI and non-interactive CLI
+
 ## 2026-08-10 — harness v1.1.1
 
 - Default `USE_DOCKER=y` so quickstart migrate path works with Compose

@@ -68,15 +68,21 @@ django-ai-harness/
 
 ## Quick start — new project from zero
 
+### Guided TUI (recommended for humans)
+
 ```bash
-# 1) Get the harness
 git clone https://github.com/leohakim/django-ai-harness.git
 cd django-ai-harness
+./scripts/new-project-tui.sh
+```
 
-# 2) Create a project (pinned cookiecutter-django + overlay; Docker on by default)
-./scripts/new-project.sh ~/Projects/my_app
+An interactive **Textual** wizard explains each cookiecutter/harness choice in Spanish
+(with English technical labels): what you add, what you leave out, and the implications.
 
-# 3) Enter the project, sync, start Postgres, migrate
+### Non-interactive (agents / CI)
+
+```bash
+./scripts/new-project.sh ~/Projects/my_app "My App"
 cd ~/Projects/my_app
 uv sync
 docker compose -f docker-compose.local.yml up -d
@@ -87,7 +93,7 @@ uv run python manage.py runserver
 > Need a lighter bootstrap without Compose? `USE_DOCKER=n ./scripts/new-project.sh …`  
 > then supply `POSTGRES_*` (or `DATABASE_URL`) yourself before migrate.
 
-Full walkthrough (prompts, first HackSoft app, checklist): **[docs/getting-started.md](docs/getting-started.md)**.
+Full walkthrough: **[docs/getting-started.md](docs/getting-started.md)** · TUI details: **[docs/wizard.md](docs/wizard.md)**.
 
 Human-oriented notes: [docs/for-humans.md](docs/for-humans.md).  
 Agent-oriented contract: [docs/for-agents.md](docs/for-agents.md).
