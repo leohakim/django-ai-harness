@@ -2,10 +2,10 @@
 
 Upstream: `gh:cookiecutter/cookiecutter-django`.
 
-Default pin used by scripts (override with `COOKIECUTTER_DJANGO_REF`):
+Default pin is the single file `COOKIECUTTER_PIN` at the harness root (override with `COOKIECUTTER_DJANGO_REF`):
 
 ```text
-cdbe7265c79f43fd3e22c4527a97c8c7a5c72a5b
+# read from COOKIECUTTER_PIN — do not hardcode elsewhere
 ```
 
 To intentionally track latest: `COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh`
@@ -14,9 +14,9 @@ To intentionally track latest: `COOKIECUTTER_DJANGO_REF=master ./scripts/refresh
 
 ```text
 project_name / project_slug     = caller-provided
-description                     = "Project managed with django-ai-harness"
-author_name                     = "django-ai-harness" (override with AUTHOR_NAME)
-domain_name                     = "example.com"
+description                     = "Project managed with django-ai-harness" (DESCRIPTION)
+author_name                     = "django-ai-harness" (AUTHOR_NAME)
+domain_name                     = "example.com" (DOMAIN_NAME)
 open_source_license             = MIT
 username_type                   = email
 timezone                        = UTC
@@ -35,7 +35,7 @@ use_sentry                      = n
 use_whitenoise                  = y
 use_heroku                      = n
 ci_tool                         = Github
-keep_local_envs_in_vcs          = y
+keep_local_envs_in_vcs          = n
 debug                           = n
 ```
 
@@ -46,3 +46,4 @@ debug                           = n
 - Do not delete `config/settings/` split.
 - DRF is preferred so HackSoft API patterns apply cleanly.
 - If `use_docker=n`, ensure Postgres is available or adjust DATABASE_URL per cookiecutter docs / test settings.
+- Do not commit `.envs/` with real secrets; the harness default is `keep_local_envs_in_vcs=n`.

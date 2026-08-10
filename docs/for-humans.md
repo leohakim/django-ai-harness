@@ -5,7 +5,7 @@
 Treat **django-ai-harness** as your Django “standard library of process”:
 
 - Clone once, update often (`git pull`).
-- Create apps with `./scripts/new-project.sh`.
+- Create apps with the guided TUI: `./scripts/new-project-tui.sh` (or non-interactive `./scripts/new-project.sh`).
 - Read `knowledge/` when unsure *why* a tool exists.
 - Send agents to `docs/for-agents.md` instead of re-explaining preferences.
 

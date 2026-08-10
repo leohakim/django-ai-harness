@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-OVERLAY_VERSION = "1.1.1"
+OVERLAY_VERSION = "1.2.0"
 MARKER_BEGIN = "# >>> django-ai-harness"
 MARKER_END = "# <<< django-ai-harness"
 MARKER_BEGIN_PGBOUNCER = "# >>> django-ai-harness:pgbouncer"
@@ -158,7 +158,10 @@ VERSION_CHECKS = {{
 # Prefer IPython when available (django-extensions shell_plus)
 SHELL_PLUS = "ipython"
 
-# django-rich / Rich: clearer local console logs
+# django-rich provides Rich-powered management helpers; RichHandler improves console logs
+INSTALLED_APPS += ["django_rich"]
+
+# Rich: clearer local console logs
 LOGGING = {{
     "version": 1,
     "disable_existing_loggers": False,
@@ -210,6 +213,8 @@ def patch_base_settings_notes(project_root: Path) -> bool:
 
 def add_seed_command(project_root: Path, package: str) -> bool:
     """Install seed_database under users (INSTALLED_APPS), not the bare project package."""
+    if not package.isidentifier():
+        die(f"invalid project package name for seed command: {package!r}")
     base = project_root / package / "users" / "management" / "commands"
     inits = [
         project_root / package / "users" / "management" / "__init__.py",
@@ -424,9 +429,10 @@ def add_pgbouncer_templates(project_root: Path, harness_root: Path) -> bool:
         src = src_root / rel
         if not src.exists():
             die(f"missing template file: {src}")
-        if write_file(dest, src.read_text(encoding="utf-8")):
+        # Do not clobber local edits on re-apply
+        if write_file_if_missing(dest, src.read_text(encoding="utf-8")):
             changed = True
-        if dest.name == "entrypoint.sh":
+        if dest.name == "entrypoint.sh" and dest.exists():
             dest.chmod(dest.stat().st_mode | 0o111)
     return changed
 

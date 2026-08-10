@@ -271,3 +271,6 @@ dump.rdb
 harness_example/media/
 
 .pytest_cache/
+.ipython/
+.env
+.envs/*

@@ -14,7 +14,8 @@ Please support the author by purchasing the book if these topics help you: https
 
 ## HackSoft Django Styleguide
 
-Architecture guidance is based on the public [HackSoftware/Django-Styleguide](https://github.com/HackSoftware/Django-Styleguide). Follow upstream license/terms when consulting the original.
+Architecture guidance is based on the public [HackSoftware/Django-Styleguide](https://github.com/HackSoftware/Django-Styleguide).
+That repository is MIT-licensed (Copyright © HackSoft). This harness paraphrases operative rules for agents; consult upstream for the full guide and license text.
 
 ## cookiecutter-django
 

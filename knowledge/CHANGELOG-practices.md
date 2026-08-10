@@ -4,6 +4,10 @@
 
 - Guided **Textual TUI** wizard (`./scripts/new-project-tui.sh`) with Spanish UI + English technical labels
 - Shared `scripts/lib/scaffold.py` used by TUI and non-interactive CLI
+- Single pin source `COOKIECUTTER_PIN`; `keep_local_envs_in_vcs=n`; example uses Docker=`y`
+- CI fails if golden `example/` drifts; TUI UI updates are thread-safe
+- PgBouncer compose binds `127.0.0.1:6432`; templates are write-if-missing on re-apply
+- `django_rich` added to local `INSTALLED_APPS`; HackSoft MIT attribution clarified
 
 ## 2026-08-10 — harness v1.1.1
 

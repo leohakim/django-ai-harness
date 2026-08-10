@@ -25,12 +25,12 @@ Properties:
 |---|---|
 | Agents | Adds `AGENTS.md` if missing |
 | Dependencies | Ensures DX packages via `uv add --group dev` (requires `uv` on PATH) |
-| Local settings | Enables browser-reload, Rich console logging, django-read-only, version checks |
+| Local settings | Enables browser-reload, `django_rich`, Rich console logging, django-read-only, version checks |
 | Commands | Adds `seed_database` under the installed `users` app if missing |
 | Tests | Adds pending-migrations test module if missing |
 | Architecture | Copies `harness_templates/app_skeleton/` reference files if missing |
 | Docs | Adds `docs/django-ai-harness.md` if missing |
-| PgBouncer (opt-in) | Always installs `compose/pgbouncer/` + `docker-compose.pgbouncer.yml` and env-gated settings hooks; `--with-pgbouncer` flips `.envs` to route via the pooler |
+| PgBouncer (opt-in) | Installs `compose/pgbouncer/` + `docker-compose.pgbouncer.yml` **if missing** and env-gated settings hooks; `--with-pgbouncer` flips `.envs` to route via the pooler |
 
 ## What it deliberately does **not** change
 

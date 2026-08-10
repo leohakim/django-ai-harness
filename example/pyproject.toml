@@ -54,7 +54,7 @@ dev = [
   "ipython>=9.16.1",
   "mypy==2.3.0",
   "pre-commit==4.6.1",
-  "psycopg[binary]==3.3.4",
+  "psycopg[c]==3.3.4",
   "pytest==9.1.1",
   "pytest-django==4.13.0",
   "pytest-sugar==1.1.1",

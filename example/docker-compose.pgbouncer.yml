@@ -19,6 +19,8 @@ services:
     image: edoburu/pgbouncer:v1.23.1-p1
     depends_on:
       - postgres
+    # Default fragment targets local Compose. For production, override env_file:
+    #   env_file: ./.envs/.production/.postgres
     env_file:
       - ./.envs/.local/.postgres
     environment:
@@ -33,8 +35,9 @@ services:
     volumes:
       - ./compose/pgbouncer/entrypoint.sh:/entrypoint-harness.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint-harness.sh"]
+    # Bind localhost only — avoid exposing the pooler on all interfaces
     ports:
-      - "6432:6432"
+      - "127.0.0.1:6432:6432"
     restart: unless-stopped
 
   django:

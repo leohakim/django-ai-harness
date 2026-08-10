@@ -1,6 +1,6 @@
 ---
 name: django-dx-scaffold
-description: Scaffold a new Django project using cookiecutter-django latest plus the django-ai-harness overlay. Use when the user wants a new Django app, greenfield project, or harness bootstrap.
+description: Scaffold a new Django project using cookiecutter-django (pinned ref) plus the django-ai-harness overlay. Use when the user wants a new Django app, greenfield project, or harness bootstrap.
 ---
 
 # django-dx-scaffold
@@ -26,6 +26,7 @@ Confirm `uv` and `cookiecutter` are installed. If missing, help the user install
 WITH_PGBOUNCER=1 ./scripts/new-project.sh <target_directory> "<Project Name>"
 ```
 
+4. Confirm the pin: root `COOKIECUTTER_PIN` (override with `COOKIECUTTER_DJANGO_REF` only when intentionally drifting).
 5. `cd` into the project and run:
    - `uv sync`
    - `uv run python manage.py check` (with required `POSTGRES_*` env / Compose up)

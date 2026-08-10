@@ -4,7 +4,7 @@ This repository is an open-source **knowledge + overlay harness** for Django pro
 
 ## Mission
 
-1. Bootstrap new Django apps from **cookiecutter-django (latest)** + this repo’s **overlay**.
+1. Bootstrap new Django apps from **cookiecutter-django (pinned ref in `COOKIECUTTER_PIN`)** + this repo’s **overlay**.
 2. Enforce **HackSoft-style** services/selectors architecture.
 3. Encode modern DX practices inspired by *Boost Your Django DX* (without copying the book).
 

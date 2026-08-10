@@ -18,24 +18,40 @@ jobs:
           python-version: "3.14"
       - name: Install cookiecutter
         run: uv tool install cookiecutter
+      - name: Read cookiecutter pin
+        id: pin
+        run: |
+          REF="$(grep -v '^[[:space:]]*#' COOKIECUTTER_PIN | grep -v '^[[:space:]]*$' | head -n1)"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
       - name: Refresh example (cookiecutter + overlay)
         env:
-          COOKIECUTTER_DJANGO_REF: cdbe7265c79f43fd3e22c4527a97c8c7a5c72a5b
+          COOKIECUTTER_DJANGO_REF: ${{ steps.pin.outputs.ref }}
         run: |
           chmod +x scripts/*.sh
           ./scripts/refresh-example.sh
+      - name: Golden example must match regenerated tree
+        run: |
+          git add -A example
+          git diff --cached --exit-code -- example \
+            || (echo "::error::example/ is stale; run ./scripts/refresh-example.sh and commit" && exit 1)
       - name: Overlay marker present
         run: test -f example/.django-ai-harness.json
       - name: AGENTS.md present
         run: test -f example/AGENTS.md
-      - name: Syntax-check overlay
-        run: python3 -m py_compile overlay/apply.py
+      - name: Syntax-check overlay + scaffold
+        run: |
+          python3 -m py_compile overlay/apply.py
+          python3 -m py_compile scripts/lib/scaffold.py
+          python3 -m py_compile scripts/lib/cli_scaffold.py
+          python3 -m py_compile scripts/wizard/app.py
+          python3 -m py_compile scripts/wizard/steps.py
       - name: Sync example deps
         working-directory: example
         run: uv sync
       - name: Django check (local settings, dummy DB env)
         working-directory: example
         env:
+          USE_DOCKER: "no"
           POSTGRES_DB: harness
           POSTGRES_USER: harness
           POSTGRES_PASSWORD: harness
@@ -45,6 +61,7 @@ jobs:
       - name: seed_database command is registered
         working-directory: example
         env:
+          USE_DOCKER: "no"
           POSTGRES_DB: harness
           POSTGRES_USER: harness
           POSTGRES_PASSWORD: harness
@@ -54,6 +71,7 @@ jobs:
       - name: Docs presence
         run: |
           test -f README.md
+          test -f COOKIECUTTER_PIN
           test -f docs/getting-started.md
           test -f knowledge/book-map.md
           test -f knowledge/dx-practices/postgres-pooling.md

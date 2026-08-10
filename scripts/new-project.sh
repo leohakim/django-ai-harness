@@ -16,7 +16,12 @@ if [[ -z "${TARGET}" ]]; then
   exit 1
 fi
 
-export COOKIECUTTER_DJANGO_REF="${COOKIECUTTER_DJANGO_REF:-cdbe7265c79f43fd3e22c4527a97c8c7a5c72a5b}"
+if [[ -z "${COOKIECUTTER_DJANGO_REF:-}" ]]; then
+  COOKIECUTTER_DJANGO_REF="$(
+    grep -v '^[[:space:]]*#' "${HARNESS_ROOT}/COOKIECUTTER_PIN" | grep -v '^[[:space:]]*$' | head -n1
+  )"
+fi
+export COOKIECUTTER_DJANGO_REF
 USE_DOCKER="${USE_DOCKER:-y}"
 WITH_PGBOUNCER_FLAG=0
 if [[ "${WITH_PGBOUNCER:-0}" == "1" || "${WITH_PGBOUNCER:-}" == "y" || "${WITH_PGBOUNCER:-}" == "yes" ]]; then
@@ -36,6 +41,9 @@ ARGS=(
   --use-whitenoise "${USE_WHITENOISE:-y}"
   --use-sentry "${USE_SENTRY:-n}"
   --cloud-provider "${CLOUD_PROVIDER:-None}"
+  --author-name "${AUTHOR_NAME:-django-ai-harness}"
+  --description "${DESCRIPTION:-Project managed with django-ai-harness}"
+  --domain-name "${DOMAIN_NAME:-example.com}"
 )
 if [[ "${WITH_PGBOUNCER_FLAG}" == "1" ]]; then
   ARGS+=(--with-pgbouncer)

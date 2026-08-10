@@ -1,6 +1,6 @@
 # HackSoft Django Styleguide Reference
 
-Source: [HackSoftware/Django-Styleguide](https://github.com/HackSoftware/Django-Styleguide). Checked 2026-07-07.
+Source: [HackSoftware/Django-Styleguide](https://github.com/HackSoftware/Django-Styleguide) (MIT, Copyright © HackSoft). Checked 2026-07-07.
 
 Use this reference as the local operating contract for strict HackSoft-style Django architecture. It paraphrases the upstream repository and adapts it to the user's requirement: follow the styleguide by default.
 

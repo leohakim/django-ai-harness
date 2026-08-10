@@ -55,7 +55,7 @@ cookiecutter-django + overlay.
 
 The script will:
 
-1. Run `cookiecutter` against **`gh:cookiecutter/cookiecutter-django`** at the **pinned commit** in the script (override with `COOKIECUTTER_DJANGO_REF`).
+1. Run `cookiecutter` against **`gh:cookiecutter/cookiecutter-django`** at the **pinned commit** in `COOKIECUTTER_PIN` (override with `COOKIECUTTER_DJANGO_REF`).
 2. Apply the **overlay** from this repo (`overlay/apply.py`).
 3. Print next commands.
 
@@ -120,14 +120,16 @@ Details: [../knowledge/dx-practices/postgres-pooling.md](../knowledge/dx-practic
 ```bash
 cd ~/Projects/my_shop
 uv sync
-# Default scaffold uses Docker (USE_DOCKER=y):
+# Default scaffold uses Docker (cookiecutter use_docker=y):
 docker compose -f docker-compose.local.yml up -d
 uv run python manage.py migrate
 uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
-If you created the project with `USE_DOCKER=n`, export `POSTGRES_*` (or `DATABASE_URL`) before migrate — cookiecutter settings do not use SQLite for the default database.
+When running management commands **outside** Compose on a Docker-based project, export `USE_DOCKER=no` (cookiecutter’s local settings require the `USE_DOCKER` env var).
+
+If you created the project with cookiecutter `use_docker=n`, export `POSTGRES_*` (or `DATABASE_URL`) before migrate — cookiecutter settings do not use SQLite for the default database.
 
 Open the site (usually `http://127.0.0.1:8000/`). With the overlay, template/static changes can auto-reload via **django-browser-reload** when configured in local settings.
 
@@ -184,7 +186,7 @@ uv run python manage.py check
 
 ## 8. Done checklist
 
-- [ ] Project created via cookiecutter-django latest + overlay
+- [ ] Project created via cookiecutter-django (pinned ref) + overlay
 - [ ] `uv sync` succeeds
 - [ ] Migrations applied; superuser created
 - [ ] `AGENTS.md` present in the project

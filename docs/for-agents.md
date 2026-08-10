@@ -4,7 +4,7 @@
 
 Produce and maintain Django projects that:
 
-1. Originate from **cookiecutter-django latest** + **django-ai-harness overlay**.
+1. Originate from **cookiecutter-django (pinned ref)** + **django-ai-harness overlay**.
 2. Keep business logic in **services/selectors** (HackSoft).
 3. Preserve DX gates (Ruff, pre-commit, checks, migration safeguards).
 

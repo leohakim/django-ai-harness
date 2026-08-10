@@ -7,10 +7,28 @@ import re
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_COOKIECUTTER_REF = "cdbe7265c79f43fd3e22c4527a97c8c7a5c72a5b"
+def default_cookiecutter_ref(harness_root: Path | None = None) -> str:
+    env = os.environ.get("COOKIECUTTER_DJANGO_REF")
+    if env:
+        return env.strip()
+    root = harness_root or Path(__file__).resolve().parents[2]
+    pin = root / "COOKIECUTTER_PIN"
+    if pin.exists():
+        for line in pin.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+    return "cdbe7265c79f43fd3e22c4527a97c8c7a5c72a5b"
+
+
+def sanitize_context_value(value: str, *, field: str) -> str:
+    """Reject values that break cookiecutter key=value CLI parsing."""
+    if "\n" in value or "\r" in value or "=" in value:
+        raise ValueError(f"Invalid character in {field}: avoid newlines and '='")
+    return value
 
 
 def sanitize_slug(raw: str) -> str:
@@ -50,12 +68,7 @@ class ProjectConfig:
     ci_tool: str = "Github"
     with_pgbouncer: bool = False
     project_slug: str = ""
-    cookiecutter_ref: str = field(
-        default_factory=lambda: os.environ.get(
-            "COOKIECUTTER_DJANGO_REF",
-            DEFAULT_COOKIECUTTER_REF,
-        )
-    )
+    cookiecutter_ref: str = ""
 
     def __post_init__(self) -> None:
         self.target = Path(self.target).expanduser().resolve()
@@ -65,6 +78,13 @@ class ProjectConfig:
             self.project_slug = sanitize_slug(self.target.name)
         else:
             self.project_slug = sanitize_slug(self.project_slug)
+        if not self.cookiecutter_ref:
+            self.cookiecutter_ref = default_cookiecutter_ref()
+        self.project_name = sanitize_context_value(self.project_name, field="project_name")
+        self.description = sanitize_context_value(self.description, field="description")
+        self.author_name = sanitize_context_value(self.author_name, field="author_name")
+        self.domain_name = sanitize_context_value(self.domain_name, field="domain_name")
+        self.email = sanitize_context_value(self.email, field="email")
 
 
 def _require_tools() -> None:
@@ -104,6 +124,7 @@ def scaffold(config: ProjectConfig, harness_root: Path) -> Path:
             "windows=n",
             "editor=None",
             f"use_docker={config.use_docker}",
+            "postgresql_version=16",
             f"cloud_provider={config.cloud_provider}",
             f"mail_service={config.mail_service}",
             f"rest_api={config.rest_api}",
@@ -115,7 +136,7 @@ def scaffold(config: ProjectConfig, harness_root: Path) -> Path:
             f"use_whitenoise={config.use_whitenoise}",
             f"use_heroku={config.use_heroku}",
             f"ci_tool={config.ci_tool}",
-            "keep_local_envs_in_vcs=y",
+            "keep_local_envs_in_vcs=n",
             "debug=n",
         ]
         subprocess.run(cmd, check=True)

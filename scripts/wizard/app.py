@@ -252,7 +252,8 @@ class DecisionScreen(Screen[None]):
             app.decision_index -= 1
             rebuilt: dict[str, str] = {}
             i = 0
-            while i < app.decision_index:
+            # Keep answers through the step we return to so prior selection is restored
+            while i <= app.decision_index:
                 vis = visible_decisions(rebuilt)
                 if i >= len(vis):
                     break
@@ -339,41 +340,58 @@ class GenerateScreen(ModalScreen[None]):
         if bar.progress < 90:
             bar.advance(1)
 
+    def _write_log(self, message: str) -> None:
+        self.query_one("#gen_log", RichLog).write(message)
+
     def _run(self) -> None:
         app = self.app
         assert isinstance(app, WizardApp)
-        log = self.query_one("#gen_log", RichLog)
+        identity = dict(app.identity)
+        # Only persist answers for currently visible decisions
+        visible_answers: dict[str, str] = {}
+        while True:
+            vis = visible_decisions(visible_answers)
+            progressed = False
+            for decision in vis:
+                if decision.key not in visible_answers:
+                    visible_answers[decision.key] = app.answers.get(
+                        decision.key,
+                        decision.default,
+                    )
+                    progressed = True
+                    break
+            if not progressed:
+                break
         try:
-            self.app.call_from_thread(log.write, "[cyan]Preparando configuración…[/cyan]")
-            answers = app.answers
+            self.app.call_from_thread(self._write_log, "[cyan]Preparando configuración…[/cyan]")
             cfg = ProjectConfig(
-                target=Path(app.identity["target"]),
-                project_name=app.identity["project_name"],
-                description=app.identity["description"],
-                author_name=app.identity["author_name"],
-                domain_name=app.identity["domain_name"],
-                email=app.identity["email"],
-                project_slug=app.identity["project_slug"],
-                use_docker=answers.get("use_docker", "y"),
-                rest_api=answers.get("rest_api", "DRF"),
-                use_celery=answers.get("use_celery", "n"),
-                frontend_pipeline=answers.get("frontend_pipeline", "None"),
-                ci_tool=answers.get("ci_tool", "Github"),
-                use_whitenoise=answers.get("use_whitenoise", "y"),
-                use_sentry=answers.get("use_sentry", "n"),
-                cloud_provider=answers.get("cloud_provider", "None"),
-                with_pgbouncer=answers.get("with_pgbouncer", "n") == "y",
+                target=Path(identity["target"]),
+                project_name=identity["project_name"],
+                description=identity["description"],
+                author_name=identity["author_name"],
+                domain_name=identity["domain_name"],
+                email=identity["email"],
+                project_slug=identity["project_slug"],
+                use_docker=visible_answers.get("use_docker", "y"),
+                rest_api=visible_answers.get("rest_api", "DRF"),
+                use_celery=visible_answers.get("use_celery", "n"),
+                frontend_pipeline=visible_answers.get("frontend_pipeline", "None"),
+                ci_tool=visible_answers.get("ci_tool", "Github"),
+                use_whitenoise=visible_answers.get("use_whitenoise", "y"),
+                use_sentry=visible_answers.get("use_sentry", "n"),
+                cloud_provider=visible_answers.get("cloud_provider", "None"),
+                with_pgbouncer=visible_answers.get("with_pgbouncer", "n") == "y",
             )
             self.app.call_from_thread(
-                log.write,
+                self._write_log,
                 f"[cyan]cookiecutter-django @ {cfg.cookiecutter_ref[:12]}…[/cyan]",
             )
             scaffold(cfg, HARNESS_ROOT)
-            self.app.call_from_thread(log.write, "[green]Overlay aplicado.[/green]")
-            self.app.call_from_thread(log.write, next_steps(cfg))
+            self.app.call_from_thread(self._write_log, "[green]Overlay aplicado.[/green]")
+            self.app.call_from_thread(self._write_log, next_steps(cfg))
             self.app.call_from_thread(self._done_ok)
         except Exception as exc:  # noqa: BLE001 — show in UI
-            self.app.call_from_thread(log.write, f"[red]Error:[/red] {exc}")
+            self.app.call_from_thread(self._write_log, f"[red]Error:[/red] {exc}")
             self.app.call_from_thread(self._done_err)
 
     def _done_ok(self) -> None:

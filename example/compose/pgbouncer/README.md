@@ -72,4 +72,5 @@ Lower `max_connections` on Postgres; let PgBouncer absorb client concurrency.
 | `compose/pgbouncer/userlist.txt.example` | Auth file example for ini-based setups |
 | `compose/pgbouncer/postgres/*.conf` | Optional Postgres presets |
 
-For production compose, change `pgbouncer.env_file` to `./.envs/.production/.postgres`.
+For production compose, override `pgbouncer.env_file` to `./.envs/.production/.postgres`.
+The published port is bound to `127.0.0.1:6432` by default (not all interfaces).
