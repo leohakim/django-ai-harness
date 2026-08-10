@@ -1,0 +1,47 @@
+name: django-ai-harness CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  overlay-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install cookiecutter
+        run: uv tool install cookiecutter
+      - name: Refresh example (cookiecutter + overlay)
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/refresh-example.sh
+      - name: Overlay marker present
+        run: test -f example/.django-ai-harness.json
+      - name: AGENTS.md present
+        run: test -f example/AGENTS.md
+      - name: Syntax-check overlay
+        run: python3 -m py_compile overlay/apply.py
+      - name: Sync example deps
+        working-directory: example
+        run: uv sync
+      - name: Django check (local settings, dummy DB env)
+        working-directory: example
+        env:
+          POSTGRES_DB: harness
+          POSTGRES_USER: harness
+          POSTGRES_PASSWORD: harness
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+        run: uv run python manage.py check --settings=config.settings.local
+      - name: Docs presence
+        run: |
+          test -f README.md
+          test -f docs/getting-started.md
+          test -f knowledge/book-map.md

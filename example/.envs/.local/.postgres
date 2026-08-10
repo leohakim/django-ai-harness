@@ -1,0 +1,7 @@
+# PostgreSQL
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=harness_example
+POSTGRES_USER=aVvlLBHAMmmzGEWiyoVBhXAYLkMWyeaU
+POSTGRES_PASSWORD=wpoiPPBnm8Bip6mlglKb3WDS52fh2Uv7FWKViS0aJE64mDL0MR5hMsx7CC1k2fwV

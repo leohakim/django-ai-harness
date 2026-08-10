@@ -1,0 +1,26 @@
+name: Upstream cookiecutter-django drift
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install cookiecutter
+        run: uv tool install cookiecutter
+      - name: Try refresh example
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/refresh-example.sh
+      - name: Show diff stat
+        run: |
+          git status --short
+          git diff --stat || true
