@@ -1,49 +1,65 @@
-# cookiecutter-django defaults for agents
+# cookiecutter-django defaults
 
-Upstream: `gh:cookiecutter/cookiecutter-django`.
+Upstream: [`cookiecutter/cookiecutter-django`](https://github.com/cookiecutter/cookiecutter-django).
 
-Default pin is the single file `COOKIECUTTER_PIN` at the harness root (override with `COOKIECUTTER_DJANGO_REF`):
-
-```text
-# read from COOKIECUTTER_PIN — do not hardcode elsewhere
-```
-
-To intentionally track latest: `COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh`
-
-## Non-interactive defaults used by `scripts/new-project.sh` / `refresh-example.sh`
+The harness generates from an **exact commit**, never a branch. The pin lives in one
+place:
 
 ```text
-project_name / project_slug     = caller-provided
-description                     = "Project managed with django-ai-harness" (DESCRIPTION)
-author_name                     = "django-ai-harness" (AUTHOR_NAME)
-domain_name                     = "example.com" (DOMAIN_NAME)
-open_source_license             = MIT
-username_type                   = email
-timezone                        = UTC
-windows                         = n
-editor                          = None
-use_docker                      = y   # script default; USE_DOCKER=n to opt out
-postgresql_version              = 16
-cloud_provider                  = None
-mail_service                    = Other SMTP
-rest_api                        = DRF
-use_async                       = n
-frontend_pipeline               = None
-use_celery                      = n
-mail_catcher                    = None
-use_sentry                      = n
-use_whitenoise                  = y
-use_heroku                      = n
-ci_tool                         = Github
-keep_local_envs_in_vcs          = n
-debug                           = n
+src/django_ai_harness/data/cookiecutter-django.pin
 ```
+
+Override it for a single run with the `COOKIECUTTER_DJANGO_REF` environment variable.
+That is how the scheduled drift job probes upstream tip:
+
+```bash
+COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh
+```
+
+Inspect the current pin with `django-ai-harness info`.
+
+## Context used by the harness
+
+`django-ai-harness new` drives cookiecutter through its Python API with this context.
+Everything marked *flag* is exposed on the command line and in the wizard.
+
+| Key | Value | Flag |
+|---|---|---|
+| `project_name` | caller-provided | positional |
+| `project_slug` | derived from the target directory | `--slug` |
+| `description` | `Project managed with django-ai-harness` | `--description` |
+| `author_name` | `django-ai-harness` | `--author-name` |
+| `domain_name` | `example.com` | `--domain-name` |
+| `email` | `hello@<domain>` | `--email` |
+| `timezone` | `UTC` | `--timezone` |
+| `use_docker` | `y` | `--use-docker` |
+| `rest_api` | `DRF` | `--rest-api` |
+| `use_celery` | `n` | `--use-celery` |
+| `frontend_pipeline` | `None` | `--frontend-pipeline` |
+| `ci_tool` | `Github` | `--ci-tool` |
+| `use_whitenoise` | `y` | `--use-whitenoise` |
+| `use_sentry` | `n` | `--use-sentry` |
+| `cloud_provider` | `None` | `--cloud-provider` |
+| `open_source_license` | `MIT` | — |
+| `username_type` | `email` | — |
+| `postgresql_version` | `16` | — |
+| `mail_service` | `Other SMTP` | — |
+| `use_async`, `use_heroku`, `windows`, `debug` | `n` | — |
+| `editor`, `mail_catcher` | `None` | — |
+| `keep_local_envs_in_vcs` | `n` | — |
+
+`keep_local_envs_in_vcs=n` is not negotiable: it keeps `.envs/` out of version control.
+
+The context is passed as a dictionary, so values containing `=` or spaces need no
+escaping. Only control characters are rejected.
 
 ## Notes for agents
 
-- After generation, **always** run the harness overlay.
-- Prefer `uv run` for all Python commands.
-- Do not delete `config/settings/` split.
-- DRF is preferred so HackSoft API patterns apply cleanly.
-- If `use_docker=n`, ensure Postgres is available or adjust DATABASE_URL per cookiecutter docs / test settings.
-- Do not commit `.envs/` with real secrets; the harness default is `keep_local_envs_in_vcs=n`.
+- After generation, **always** apply the harness overlay. `new` does this for you.
+- Prefer `uv run` for every Python command in a generated project.
+- Never flatten the `config/settings/` split.
+- DRF is the default because the HackSoft API patterns and the shipped app skeleton
+  assume it.
+- With `use_docker=n`, provide `DATABASE_URL` or the `POSTGRES_*` variables before
+  migrating.
+- Never commit `.envs/` with real secrets.

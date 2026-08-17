@@ -4,45 +4,75 @@
 
 Produce and maintain Django projects that:
 
-1. Originate from **cookiecutter-django (pinned ref)** + **django-ai-harness overlay**.
-2. Keep business logic in **services/selectors** (HackSoft).
-3. Preserve DX gates (Ruff, pre-commit, checks, migration safeguards).
+1. Originate from cookiecutter-django at a pinned commit plus the django-ai-harness
+   overlay.
+2. Keep business logic in services and selectors (HackSoft Django Styleguide).
+3. Preserve the developer-experience gates: Ruff, pre-commit, system checks, migration
+   safeguards.
 
 ## Required reading order
 
-1. Repo root `AGENTS.md`
+1. The project's own `AGENTS.md` (generated projects always have one)
 2. This file
-3. `knowledge/cookiecutter-django.md`
-4. `knowledge/architecture/hacksoft.md`
-5. `knowledge/book-map.md`
-6. `overlay/README.md`
+3. `knowledge/architecture/hacksoft.md`
+4. `knowledge/cookiecutter-django.md`
+5. `docs/overlay.md`
 
 ## Scaffolding a new project
 
-Use skill `skills/django-dx-scaffold/SKILL.md`:
+Use the [`django-dx-scaffold`](../skills/django-dx-scaffold/SKILL.md) skill.
 
-1. Ensure `uv` and `cookiecutter` exist.
-2. Run `scripts/new-project.sh <target_dir>` from the harness root (preferred), or cookiecutter + `overlay/apply.py`.
-3. Do **not** invent a custom project layout when the template already provides one.
-4. After generation: `uv sync`, migrate, run `manage.py check`, summarize next steps for the user.
+```bash
+uvx django-ai-harness new <target_directory> "<Project Name>"
+```
+
+Add flags rather than post-editing generated files:
+`--use-celery y`, `--rest-api "Django Ninja"`, `--with-pgbouncer`, `--use-docker n`.
+
+Verify afterwards:
+
+```bash
+test -f <target>/AGENTS.md
+test -f <target>/.django-ai-harness.json
+uvx django-ai-harness apply <target> --check   # must exit 0
+```
+
+Do not invent an alternative project layout. Do not skip the overlay.
 
 ## Implementing features
 
-Use skill `skills/django-hacksoft/SKILL.md`:
+Use the [`django-hacksoft`](../skills/django-hacksoft/SKILL.md) skill.
 
-- Writes → services
-- Reads → selectors
-- HTTP → thin APIs + nested serializers
-- Celery → thin tasks calling services
-- Tests mirror layers
+| Behaviour | Layer |
+|---|---|
+| Writes, workflows, side effects | `services.py` |
+| Reads, filtering, visibility | `selectors.py` |
+| HTTP input and output | thin APIs with nested serializers |
+| Simple non-relational invariants | `Model.clean` or a database constraint |
+| Async entry point | a Celery task that calls a service |
+
+Business rules never live in views, serializers, forms, signals, `Model.save`, or custom
+managers and querysets. Tests mirror the layers.
 
 ## Reviewing
 
-Use skill `skills/django-dx-review/SKILL.md` before claiming “done”.
+Use the [`django-dx-review`](../skills/django-dx-review/SKILL.md) skill before claiming a
+change is done.
+
+## Upgrading a project
+
+```bash
+uvx django-ai-harness apply .
+```
+
+Read the output. `skipped (local edits)` means the user edited a file the overlay owns —
+surface that to the user and let them decide; never pass `--force` on your own initiative.
 
 ## Forbidden
 
-- Copying copyrighted book text into the repo or generated projects
-- Putting domain rules in views/serializers/signals/`Model.save`
-- Replacing cookiecutter settings split with a single mega-settings file “because the book said so” — instead apply anti-patterns *within* `config/settings/`
-- Skipping the overlay on greenfield projects that claim to use this harness
+- Copying copyrighted book text into any repository
+- Putting domain rules in views, serializers, signals, or `Model.save`
+- Replacing the `config/settings/` split with a single settings module
+- Skipping the overlay on a project that claims to use this harness
+- Loosening the `==` pins in `dev-requirements.txt` to `>=`
+- Editing `.django-ai-harness.json` by hand

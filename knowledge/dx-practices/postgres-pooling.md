@@ -1,64 +1,97 @@
-# PostgreSQL pooling (PgBouncer) — opt-in
+# PostgreSQL connection pooling (PgBouncer) — opt-in
 
-Stay on **PostgreSQL** (cookiecutter-django default). Use PgBouncer when RAM pressure from process-per-connection backends matters (small/medium VPS, many gunicorn/Celery workers).
+Stay on **PostgreSQL**. Add PgBouncer when memory pressure from process-per-connection
+backends is what hurts: a small or medium VPS, many Gunicorn or Celery workers, or a
+managed PostgreSQL with a low connection cap.
 
 ## Why
 
-Each Postgres connection is an OS process (~5–10+ MB). Many app workers × persistent `CONN_MAX_AGE` connections inflate RAM. PgBouncer multiplexes many client connections onto a small pool of real backends.
+Every PostgreSQL connection is an operating-system process costing roughly 5–10 MB. Many
+application workers, each holding a persistent connection through `CONN_MAX_AGE`,
+multiply that. PgBouncer multiplexes many client connections onto a small pool of real
+backends.
+
+It is not a substitute for indexes or query optimisation. If your problem is slow
+queries, pooling will not help.
 
 ## Overlay contract
 
-| Piece | Behavior |
+| Piece | Behaviour |
 |---|---|
-| Templates | Always installed under `compose/pgbouncer/` + `docker-compose.pgbouncer.yml` |
-| Settings hooks | Always patched into `local.py` / `production.py` (no-op unless `USE_PGBOUNCER=True`) |
-| Env activation | Only with `overlay/apply.py --with-pgbouncer` or `WITH_PGBOUNCER=1 ./scripts/new-project.sh …` |
+| Templates | Always installed under `compose/pgbouncer/` and `docker-compose.pgbouncer.yml` |
+| Settings | Always patched into `local.py` and `production.py`, inert unless `USE_PGBOUNCER=True` |
+| Env activation | Only with `django-ai-harness apply . --with-pgbouncer` or `new --with-pgbouncer` |
 
-Engine stays `django.db.backends.postgresql`. No MariaDB/Firebird switch.
+The engine stays `django.db.backends.postgresql`.
 
-## Django settings (transaction pooling)
+## Django settings under transaction pooling
 
-When `USE_PGBOUNCER=True`:
+When `USE_PGBOUNCER=True` the overlay sets:
 
-- `CONN_MAX_AGE=0` (do not pin Django connections across requests)
-- `DISABLE_SERVER_SIDE_CURSORS=True` (required for transaction pooling)
-- Prefer request-scoped transactions (`ATOMIC_REQUESTS` is already on in cookiecutter base)
+- `CONN_MAX_AGE=0` — a persistent Django connection would pin a pooled server connection
+  and defeat the purpose.
+- `DISABLE_SERVER_SIDE_CURSORS=True` — server-side cursors cannot survive across
+  transactions, and in transaction mode each transaction may land on a different backend.
+- `DATABASES["direct"]` — an unpooled alias for DDL, carrying
+  `TEST = {"MIRROR": "default"}` so the test runner does not try to create a second test
+  database.
+
+`ATOMIC_REQUESTS` is already enabled by cookiecutter-django and pairs well with
+transaction pooling.
 
 ## Topology
 
 ```text
 django / celery  →  pgbouncer:6432  →  postgres:5432
-migrate / DDL    →  postgres:5432   (bypass pooler)
+migrate / DDL    →  postgres:5432      (bypasses the pooler)
 ```
 
 ```bash
 docker compose -f docker-compose.local.yml -f docker-compose.pgbouncer.yml up -d
-
-# migrate bypass
-POSTGRES_HOST=postgres POSTGRES_PORT=5432 USE_PGBOUNCER=False \
-  uv run python manage.py migrate
+uv run python manage.py migrate --database=direct
 ```
+
+Migrations must bypass the pooler. DDL relies on session state — advisory locks, `SET`,
+temporary objects — and transaction pooling gives a different server connection per
+transaction.
+
+## Configuration model
+
+Configuration is environment-driven. The `edoburu/pgbouncer` image renders both
+`pgbouncer.ini` and its auth file from `DB_*` and `POOL_*` variables, and the shipped
+`entrypoint.sh` maps cookiecutter-django's `POSTGRES_*` names onto them.
+
+The harness deliberately ships **no** `pgbouncer.ini`. Version 1.x did, and the Compose
+fragment never mounted it, so editing it changed nothing — a configuration file that
+looks authoritative and is inert is worse than no file at all. To run a hand-written
+configuration, mount it over `/etc/pgbouncer/pgbouncer.ini` and drop the custom
+entrypoint.
 
 ## Tuning presets
 
-| File | Target |
+| File | Target host |
 |---|---|
 | `compose/pgbouncer/postgres/tuning-small.conf` | ~2 GB shared box |
 | `compose/pgbouncer/postgres/tuning-medium.conf` | ~4 GB shared box |
 
-Keep Postgres `max_connections` low; raise PgBouncer `max_client_conn` / `default_pool_size` instead.
+Keep PostgreSQL's `max_connections` low and raise PgBouncer's `max_client_conn` and
+`default_pool_size` instead. That reallocation is the entire point.
 
 ## Activation checklist
 
-1. Project has cookiecutter Docker compose (`use_docker=y`) or equivalent `postgres` service.
-2. Overlay applied (templates present).
-3. `--with-pgbouncer` **or** manual env: `USE_PGBOUNCER=True`, `POSTGRES_HOST=pgbouncer`, `POSTGRES_PORT=6432`, `CONN_MAX_AGE=0`.
-4. Merge `docker-compose.pgbouncer.yml`.
-5. For production compose, point pgbouncer `env_file` at `./.envs/.production/.postgres`.
-6. Run migrations against direct Postgres.
+1. The project has a `postgres` service (`use_docker=y`, or an equivalent of your own).
+2. The overlay has been applied, so the templates are present.
+3. Either `--with-pgbouncer`, or set `USE_PGBOUNCER=True`, `POSTGRES_HOST=pgbouncer`,
+   `POSTGRES_PORT=6432`, `CONN_MAX_AGE=0` yourself.
+4. Merge `docker-compose.pgbouncer.yml` into your Compose invocation.
+5. For production, point the pgbouncer `env_file` at `./.envs/.production/.postgres`.
+6. Run migrations with `--database=direct`.
+
+The published port binds to `127.0.0.1:6432`. A pooler reachable from other interfaces is
+an unauthenticated path to your database if the auth file is ever misconfigured.
 
 ## Non-goals
 
-- Not a default for every project (dev without Docker stays simple).
+- Not a default. Local development without Docker stays simple.
 - Not a database engine change.
-- Not a substitute for query optimization or missing indexes.
+- Not a replacement for query optimisation.

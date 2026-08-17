@@ -1,38 +1,98 @@
 # Updating
 
-## Update the harness itself
+## Upgrading a project to a newer harness
 
 ```bash
-cd django-ai-harness
-git pull
-./scripts/refresh-example.sh   # optional, for contributors
-```
-
-## Re-apply overlay to an existing project
-
-```bash
-python /path/to/django-ai-harness/overlay/apply.py /path/to/project
-cd /path/to/project
+uvx django-ai-harness apply .
 uv sync
-uv run pre-commit install
+uv run python manage.py check
 uv run pytest
 ```
 
-Review the diff: overlay uses markers like `# >>> django-ai-harness` so you can spot insertions.
+Review the diff before committing. Every settings patch is inside a marker block
+(`# >>> django-ai-harness:local`), so insertions are easy to spot.
 
-## Track cookiecutter-django upgrades
+### What actually gets updated
 
-1. Compare against tip: `COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh`
-2. Fix overlay if upstream renamed files/settings.
-3. Bump the default pin in `scripts/new-project.sh` / `scripts/refresh-example.sh` when ready.
-4. Document breaking changes in `knowledge/CHANGELOG-practices.md`.
+The overlay tracks the files it owns in `.django-ai-harness.json`, together with a hash
+of the content it last wrote:
 
-CI workflow `upstream-cookiecutter.yml` regenerates against **`master`** on a schedule so tip drift surfaces even while day-to-day scripts stay pinned.
+- Files you never touched are **updated** to the new harness version.
+- Files you edited are **skipped** and listed at the end of the run.
+- Files that existed before the overlay are **never touched**.
 
-## Add a new practice
+To take the harness version of a file you edited, review it and re-run with `--force`.
+To keep your version, do nothing: it stays skipped on every future run.
 
-1. Write the *why* in `knowledge/dx-practices/` or `knowledge/architecture/`.
-2. Map it in `knowledge/book-map.md` if relevant.
-3. Encode it in `overlay/` when every new project should get it.
-4. Update docs + changelog.
-5. Open a PR (see CONTRIBUTING.md).
+### Detecting drift in your own CI
+
+```yaml
+- name: Harness is up to date
+  run: uvx django-ai-harness apply . --check
+```
+
+`--check` writes nothing and exits 1 when the project has fallen behind.
+
+## Upgrading the harness itself
+
+If you installed it as a tool:
+
+```bash
+uv tool upgrade django-ai-harness
+```
+
+With `uvx` there is nothing to upgrade — each run resolves the latest release. Pin it if
+you need reproducibility:
+
+```bash
+uvx django-ai-harness==2.0.0 apply .
+```
+
+## For maintainers
+
+### Tracking cookiecutter-django
+
+The pin lives in `src/django_ai_harness/data/cookiecutter-django.pin`.
+`upstream-cookiecutter.yml` regenerates against `master` on the 1st and the 15th and
+opens a tracking issue when the output drifts.
+
+To evaluate a bump:
+
+```bash
+COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh
+git diff --stat example
+```
+
+1. Fix the overlay if upstream renamed a file or setting it patches.
+2. Update the pin to the reviewed commit — an exact SHA, never a branch.
+3. Regenerate, run the tests, and record the change in `CHANGELOG.md`.
+
+### Tracking DX dependencies
+
+`src/django_ai_harness/data/dev-requirements.txt` is pinned with `==`.
+`dx-dependencies.yml` reviews it against PyPI on the 1st and the 15th, regenerates the
+example, runs the tests, and opens a pull request.
+
+To do it by hand:
+
+```bash
+python scripts/bump_dev_requirements.py --check   # report only
+python scripts/bump_dev_requirements.py           # rewrite the pins
+./scripts/refresh-example.sh
+uv run pytest
+```
+
+Never loosen `==` to `>=`: that makes regeneration depend on the day it runs.
+
+### Adding a practice
+
+1. Write the reasoning in `knowledge/dx-practices/` or `knowledge/architecture/`.
+2. Map it in `knowledge/book-map.md` if it comes from the book's themes.
+3. Encode it in `src/django_ai_harness/overlay.py` if every new project should get it.
+4. Add a test in `tests/test_overlay.py`.
+5. Run `./scripts/refresh-example.sh` and commit `example/`.
+6. Add a `CHANGELOG.md` entry under `## [Unreleased]`.
+
+### Releasing
+
+See the release section of [CONTRIBUTING.md](../CONTRIBUTING.md).
