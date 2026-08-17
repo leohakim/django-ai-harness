@@ -21,6 +21,7 @@ from django_ai_harness.overlay import UPDATED
 from django_ai_harness.overlay import OverlayError
 from django_ai_harness.overlay import apply
 from django_ai_harness.overlay import find_project_package
+from django_ai_harness.overlay import main as overlay_main
 from django_ai_harness.overlay import merge_dev_requirements
 from django_ai_harness.overlay import migrate_legacy_markers
 from django_ai_harness.overlay import upsert_marked_block
@@ -148,12 +149,20 @@ def test_apply_writes_the_expected_artifacts(project: Path):
     apply(project)
 
     assert (project / "AGENTS.md").exists()
+    agents = (project / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Do not copy" in agents
+    assert "harness_templates/app_skeleton" in agents
+    assert "skills/django-hacksoft" in agents
     assert (project / "docs/django-ai-harness.md").exists()
     assert (project / "harness_templates/app_skeleton/services.py").exists()
     assert (project / "acme/users/management/commands/seed_database.py").exists()
     assert (project / "acme/tests/test_pending_migrations.py").exists()
     assert (project / "docker-compose.pgbouncer.yml").exists()
+    assert (project / "docker-compose.pgbouncer.production.yml").exists()
     assert (project / "compose/pgbouncer/entrypoint.sh").exists()
+    assert (project / "skills/django-hacksoft/SKILL.md").exists()
+    assert (project / "skills/django-dx-review/SKILL.md").exists()
+    assert not (project / "skills/django-dx-scaffold/SKILL.md").exists()
 
     state = read_state(project)
     assert state["overlay_version"] == OVERLAY_VERSION
@@ -173,13 +182,17 @@ def test_apply_is_idempotent(project: Path):
 
 def test_apply_does_not_touch_the_network(project: Path, monkeypatch: pytest.MonkeyPatch):
     """The v1 overlay shelled out to `uv add`, which re-resolved against PyPI."""
+    import socket  # noqa: PLC0415
     import subprocess  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
 
     def explode(*args, **kwargs):  # noqa: ARG001
-        pytest.fail("the overlay must not spawn a subprocess")
+        pytest.fail("the overlay must not touch the network or spawn a subprocess")
 
     monkeypatch.setattr(subprocess, "run", explode)
     monkeypatch.setattr(subprocess, "check_call", explode)
+    monkeypatch.setattr(socket, "create_connection", explode)
+    monkeypatch.setattr(urllib.request, "urlopen", explode)
     apply(project)
 
 
@@ -222,6 +235,24 @@ def test_system_checks_are_registered_in_base_so_they_run_under_test_settings(pr
     # Local-only tooling stays local.
     assert "django_browser_reload" in local
     assert "django_browser_reload" not in base
+
+
+def test_system_check_apps_are_import_guarded_for_production_without_dev(project: Path):
+    """Production images run `uv sync --no-dev` then import config.settings.test.
+
+    The two check packages stay in the dev extra, so the payload must degrade to a
+    no-op when they are missing rather than raising ModuleNotFoundError at setup.
+    """
+    apply(project)
+    base = (project / "config/settings/base.py").read_text(encoding="utf-8")
+    assert "except ImportError" in base
+    assert "import django_linear_migrations" in base
+    assert "import django_version_checks" in base
+    # Apps and VERSION_CHECKS must live in the else of that guard, not at module level.
+    _guard, _, remainder = base.partition("except ImportError")
+    assert "INSTALLED_APPS +=" not in _guard.split("try:")[-1]
+    assert "INSTALLED_APPS +=" in remainder
+    assert "VERSION_CHECKS" in remainder
 
 
 def test_version_checks_follow_the_project_python_version(project: Path):
@@ -345,6 +376,40 @@ def test_force_adopts_untracked_files_on_upgrade(project: Path):
 
     assert "HackSoft" in (project / "AGENTS.md").read_text(encoding="utf-8")
     assert "AGENTS.md" in read_state(project)["managed_files"]
+    assert "legacy_upgrade_pending" not in read_state(project)
+
+
+def test_incomplete_1_x_upgrade_stays_pending_and_fails_check(project: Path):
+    """Stamping overlay_version 2.0.0 must not make a half-upgraded 1.x tree look clean."""
+    apply(project)
+    (project / STATE_FILENAME).write_text(
+        json.dumps({"overlay_version": "1.2.0", "harness": "django-ai-harness"}),
+        encoding="utf-8",
+    )
+    (project / "AGENTS.md").write_text("# written by overlay 1.2.0\n", encoding="utf-8")
+
+    result = apply(project)
+    state = read_state(project)
+
+    assert ("AGENTS.md", SKIPPED_LEGACY) in result.entries
+    assert state["legacy_upgrade_pending"] is True
+    assert overlay_main([str(project), "--check"]) == 1
+
+    # A second apply must still see 1.x ownership, not reclassify the file as foreign.
+    result = apply(project)
+    assert ("AGENTS.md", SKIPPED_LEGACY) in result.entries
+    assert read_state(project)["legacy_upgrade_pending"] is True
+
+
+def test_check_stays_clean_when_only_local_edits_are_skipped(project: Path):
+    """Local edits are an intentional divergence; CI --check must not fail on them."""
+    apply(project)
+    (project / "AGENTS.md").write_text("# my own contract\n", encoding="utf-8")
+
+    result = apply(project, dry_run=True)
+    assert ("AGENTS.md", SKIPPED_LOCAL) in result.entries
+    assert not result.out_of_date
+    assert overlay_main([str(project), "--check"]) == 0
 
 
 def test_legacy_marker_blocks_are_rewritten_in_place(project: Path):
@@ -424,7 +489,23 @@ def test_pgbouncer_opt_in_routes_envs_and_defines_a_direct_alias(project: Path):
     assert 'DATABASES["direct"]' in local
     assert 'env("POSTGRES_HOST_DIRECT"' in local
     assert '"TEST": {"MIRROR": "default"}' in local
+    # DATABASE_URL would otherwise keep talking to Postgres; the pooler host must win.
+    assert 'DATABASES["default"]["HOST"]' in local
+    assert 'env("POSTGRES_HOST", default="pgbouncer")' in local
+    assert 'DATABASES["default"]["PORT"]' in local
     assert read_state(project)["features"]["pgbouncer"] is True
+
+
+def test_pgbouncer_compose_does_not_use_pg_isready(project: Path):
+    """edoburu/pgbouncer is not a Postgres client image; pg_isready is not on PATH."""
+    apply(project)
+    fragment = (project / "docker-compose.pgbouncer.yml").read_text(encoding="utf-8")
+    production = (project / "docker-compose.pgbouncer.production.yml").read_text(
+        encoding="utf-8",
+    )
+    assert 'test: ["CMD-SHELL", "nc -z 127.0.0.1 6432"]' in fragment
+    assert "pg_isready" not in fragment.split("healthcheck:", 1)[1]
+    assert ".envs/.production/.postgres" in production
 
 
 def test_reapplying_without_the_flag_keeps_pgbouncer_enabled(project: Path):

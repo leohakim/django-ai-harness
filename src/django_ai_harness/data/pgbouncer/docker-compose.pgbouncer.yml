@@ -6,8 +6,10 @@
 # Local:
 #   docker compose -f docker-compose.local.yml -f docker-compose.pgbouncer.yml up -d
 #
-# Production (also switch env_file below to ./.envs/.production/.postgres):
-#   docker compose -f docker-compose.production.yml -f docker-compose.pgbouncer.yml up -d
+# Production:
+#   docker compose -f docker-compose.production.yml \
+#     -f docker-compose.pgbouncer.yml \
+#     -f docker-compose.pgbouncer.production.yml up -d
 #
 # Application environment (the overlay writes these with --with-pgbouncer):
 #   USE_PGBOUNCER=True
@@ -45,8 +47,9 @@ services:
     # Bound to loopback: the pooler must never be reachable from other interfaces.
     ports:
       - "127.0.0.1:6432:6432"
+    # edoburu/pgbouncer is not a Postgres client image; pg_isready is not on PATH.
     healthcheck:
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "6432", "-U", "${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 6432"]
       interval: 10s
       timeout: 5s
       retries: 5

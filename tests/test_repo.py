@@ -178,6 +178,34 @@ def test_readme_documents_the_published_entry_point():
     assert "uvx django-ai-harness apply" in readme
 
 
+def test_wizard_install_hint_uses_the_versioned_extra():
+    """`uvx --with textual` can pull Textual 7+, outside the extra's upper bound."""
+    cli = (REPO_ROOT / "src/django_ai_harness/cli.py").read_text(encoding="utf-8")
+    assert "uvx --from 'django-ai-harness[wizard]'" in cli
+    assert "uvx --with textual" not in cli
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "uvx --from 'django-ai-harness[wizard]'" in readme
+
+
+def test_release_workflow_only_publishes_from_a_version_tag():
+    """workflow_dispatch would publish whatever is checked out, skipping the tag check."""
+    release = (REPO_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    assert "workflow_dispatch" not in release
+    assert "if: startsWith(github.ref, 'refs/tags/v')" not in release
+    assert 'tags: ["v*"]' in release
+
+
+def test_relocated_overlay_templates_are_gone():
+    """Templates live in src/django_ai_harness/data/; a leftover copy can diverge."""
+    assert not (REPO_ROOT / "overlay/templates").exists()
+
+
+def test_generated_projects_receive_enforcement_skills():
+    """django-dx-scaffold stays in this repo; the other two must travel with uvx."""
+    names = {path.parent.name for path in (REPO_ROOT / "skills").glob("*/SKILL.md")}
+    assert names == {"django-dx-scaffold", "django-hacksoft", "django-dx-review"}
+
+
 def test_release_environment_matches_the_documented_trusted_publisher():
     """PyPI matches the OIDC claim on workflow *and* environment name.
 
@@ -190,6 +218,13 @@ def test_release_environment_matches_the_documented_trusted_publisher():
     assert "name: pypi" in release
     assert "`pypi`" in maintaining
     assert "`release.yml`" in maintaining
+
+
+def test_ci_imports_generated_settings_without_the_dev_extra():
+    """The v2 move of system checks into base is invisible unless production install is tested."""
+    ci = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "uv sync --no-dev" in ci
+    assert "django.setup()" in ci
 
 
 def test_pending_setup_is_recorded():

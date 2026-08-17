@@ -92,7 +92,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Overwrite every file the overlay owns, including locally edited ones",
     )
     apply_cmd.add_argument(
-        "--check", action="store_true", help="Report drift and exit 1; writes nothing"
+        "--check",
+        action="store_true",
+        help="Report drift and exit 1; local edits do not fail; writes nothing",
     )
 
     subparsers.add_parser("info", help="Show the pinned upstream versions this harness uses.")
@@ -135,7 +137,7 @@ def _cmd_wizard(args: argparse.Namespace, language: str) -> int:
     except ImportError:
         print(
             "error: the guided wizard needs Textual.\n"
-            "  uvx --with textual django-ai-harness wizard\n"
+            "  uvx --from 'django-ai-harness[wizard]' django-ai-harness wizard\n"
             "  # or: pip install 'django-ai-harness[wizard]'",
             file=sys.stderr,
         )

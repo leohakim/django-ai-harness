@@ -163,6 +163,9 @@ SPECTACULAR_SETTINGS["SERVERS"] = [
 # Opt-in transaction pooling. Inert unless USE_PGBOUNCER is set; the engine stays
 # PostgreSQL either way. See knowledge/dx-practices/postgres-pooling.md.
 if env.bool("USE_PGBOUNCER", default=False):
+    # Force the default alias onto the pooler even when DATABASE_URL already set HOST.
+    DATABASES["default"]["HOST"] = env("POSTGRES_HOST", default="pgbouncer")
+    DATABASES["default"]["PORT"] = env.int("POSTGRES_PORT", default=6432)
     DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=0)
     # PgBouncer in transaction mode cannot hold server-side cursors across statements.
     DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True

@@ -34,6 +34,8 @@ Verify afterwards:
 ```bash
 test -f <target>/AGENTS.md
 test -f <target>/.django-ai-harness.json
+test -f <target>/skills/django-hacksoft/SKILL.md
+test -f <target>/skills/django-dx-review/SKILL.md
 uvx django-ai-harness apply <target> --check   # must exit 0
 ```
 
@@ -67,6 +69,8 @@ uvx django-ai-harness apply .
 
 Read the output. `skipped (local edits)` means the user edited a file the overlay owns —
 surface that to the user and let them decide; never pass `--force` on your own initiative.
+`--check` stays green in that case. `skipped (untracked, pre-2.0)` is an unfinished 1.x
+upgrade: `--check` fails until the user reviews and re-runs with `--force`.
 
 ## Forbidden
 

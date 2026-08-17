@@ -100,6 +100,11 @@ SKIPPED_FOREIGN = "skipped (pre-existing file)"
 SKIPPED_LEGACY = "skipped (untracked, pre-2.0)"
 
 _DIRTY_STATUSES = frozenset({CREATED, UPDATED})
+#: `--check` fails when the overlay would write, or when a 1.x upgrade is unfinished.
+#: Local edits (`SKIPPED_LOCAL`) are an intentional divergence and stay green.
+_CHECK_FAIL_STATUSES = frozenset({CREATED, UPDATED, SKIPPED_LEGACY})
+
+_GENERATED_SKILLS = ("django-hacksoft", "django-dx-review")
 
 
 @dataclass
@@ -113,6 +118,11 @@ class OverlayResult:
     @property
     def changed(self) -> bool:
         return any(status in _DIRTY_STATUSES for _, status in self.entries)
+
+    @property
+    def out_of_date(self) -> bool:
+        """True when `--check` should fail the build."""
+        return any(status in _CHECK_FAIL_STATUSES for _, status in self.entries)
 
     @property
     def skipped(self) -> list[tuple[str, str]]:
@@ -143,7 +153,11 @@ class Overlay:
         # Overlay < 2.0 wrote a state file without `managed_files`. Those projects do have
         # overlay-owned files, we just cannot prove which ones the user has since edited,
         # so they are reported under their own status rather than silently overwritten.
-        self.legacy_state = bool(self.state) and "managed_files" not in self.state
+        # `legacy_upgrade_pending` keeps that interpretation after the first 2.0 apply,
+        # which would otherwise stamp `managed_files` and treat the leftovers as foreign.
+        self.legacy_state = bool(self.state) and (
+            "managed_files" not in self.state or bool(self.state.get("legacy_upgrade_pending"))
+        )
         self.result = OverlayResult(project_root=self.project_root, package=self.package)
 
     # -- primitives ---------------------------------------------------------------
@@ -236,12 +250,18 @@ class Overlay:
 
 # django-linear-migrations and django-version-checks register *system checks*, so they
 # belong in base settings: that is the only way they also run under config.settings.test
-# (which imports base, not local) and therefore in CI.
-INSTALLED_APPS += ["django_linear_migrations", "django_version_checks"]
-
-VERSION_CHECKS = {{
-    "python": "{version_checks}",
-}}
+# (which imports base, not local) and therefore in CI. They stay in the *dev* extra, so
+# production images that run `uv sync --no-dev` must not import them.
+try:
+    import django_linear_migrations  # noqa: F401
+    import django_version_checks  # noqa: F401
+except ImportError:
+    pass
+else:
+    INSTALLED_APPS += ["django_linear_migrations", "django_version_checks"]
+    VERSION_CHECKS = {{
+        "python": "{version_checks}",
+    }}
 """
         return self.upsert_block("config/settings/base.py", "base", body)
 
@@ -284,6 +304,9 @@ LOGGING["handlers"]["console"] = {
         body = """# Opt-in transaction pooling. Inert unless USE_PGBOUNCER is set; the engine stays
 # PostgreSQL either way. See knowledge/dx-practices/postgres-pooling.md.
 if env.bool("USE_PGBOUNCER", default=False):
+    # Force the default alias onto the pooler even when DATABASE_URL already set HOST.
+    DATABASES["default"]["HOST"] = env("POSTGRES_HOST", default="pgbouncer")
+    DATABASES["default"]["PORT"] = env.int("POSTGRES_PORT", default=6432)
     DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=0)
     # PgBouncer in transaction mode cannot hold server-side cursors across statements.
     DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
@@ -354,6 +377,24 @@ if env.bool("USE_PGBOUNCER", default=False):
         ]
         return _worst(statuses)
 
+    def add_agent_skills(self) -> str:
+        """Install the portable skills that constrain agents *inside* the project."""
+        source = _bundled_skills()
+        statuses = []
+        for name in _GENERATED_SKILLS:
+            root = source / name
+            if not root.is_dir():
+                msg = f"missing bundled skill {name} at {root}"
+                raise OverlayError(msg)
+            for path in sorted(root.rglob("*")):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(source).as_posix()
+                statuses.append(
+                    self.write_managed(f"skills/{rel}", path.read_text(encoding="utf-8")),
+                )
+        return _worst(statuses) if statuses else UNCHANGED
+
     def add_pgbouncer_templates(self) -> str:
         source = data_path("pgbouncer")
         if not source.is_dir():  # pragma: no cover - packaging error
@@ -365,6 +406,7 @@ if env.bool("USE_PGBOUNCER", default=False):
             "postgres/tuning-small.conf": "compose/pgbouncer/postgres/tuning-small.conf",
             "postgres/tuning-medium.conf": "compose/pgbouncer/postgres/tuning-medium.conf",
             "docker-compose.pgbouncer.yml": "docker-compose.pgbouncer.yml",
+            "docker-compose.pgbouncer.production.yml": "docker-compose.pgbouncer.production.yml",
         }
         statuses = []
         for rel, dest in mapping.items():
@@ -428,6 +470,7 @@ POSTGRES_PORT_DIRECT=5432
     def write_state(self, *, with_pgbouncer: bool) -> None:
         # Re-applying without the flag must never silently disable an enabled opt-in.
         previously_enabled = bool(self.state.get("features", {}).get("pgbouncer", False))
+        pending = any(status == SKIPPED_LEGACY for _, status in self.result.entries)
         payload = {
             "harness": "django-ai-harness",
             "overlay_version": OVERLAY_VERSION,
@@ -437,6 +480,9 @@ POSTGRES_PORT_DIRECT=5432
             # state file has to stay byte-stable for the golden example diff.
             "managed_files": dict(sorted(self._managed.items())),
         }
+        if pending:
+            # Do not treat a half-finished 1.x upgrade as a completed 2.0 adoption.
+            payload["legacy_upgrade_pending"] = True
         if not self.dry_run:
             (self.project_root / STATE_FILENAME).write_text(
                 json.dumps(payload, indent=2) + "\n",
@@ -574,6 +620,23 @@ def _python_requirement(project_root: Path) -> str:
     return f"~={sys.version_info.major}.{sys.version_info.minor}.0"
 
 
+def _bundled_skills() -> Path:
+    """Locate django-hacksoft / django-dx-review for copying into generated projects.
+
+    The wheel ships them under ``data/skills/`` (hatch force-include). A source
+    checkout reads the repo-level ``skills/`` directory so tests do not depend on
+    a built package.
+    """
+    packaged = data_path("skills")
+    if (packaged / "django-hacksoft" / "SKILL.md").is_file():
+        return packaged
+    repo = Path(__file__).resolve().parents[2] / "skills"
+    if (repo / "django-hacksoft" / "SKILL.md").is_file():
+        return repo
+    msg = "bundled Agent Skills are missing from the package"
+    raise OverlayError(msg)
+
+
 # --------------------------------------------------------------------------------------
 # Entry points
 # --------------------------------------------------------------------------------------
@@ -598,6 +661,7 @@ def apply(
     overlay.add_pending_migrations_test()
     overlay.add_project_doc()
     overlay.add_app_skeleton()
+    overlay.add_agent_skills()
     overlay.ensure_linear_migration_files()
     overlay.add_pgbouncer_templates()
     overlay.patch_pgbouncer_settings()
@@ -612,7 +676,7 @@ def _report(result: OverlayResult, *, dry_run: bool) -> None:
         if status == UNCHANGED:
             continue
         print(f"  {status:<26} {label}")
-    if not result.changed:
+    if not result.changed and not result.skipped:
         print("  everything already up to date")
     if result.skipped:
         legacy = any(status == SKIPPED_LEGACY for _, status in result.skipped)
@@ -634,7 +698,7 @@ def _report(result: OverlayResult, *, dry_run: bool) -> None:
                 "harness\nversions, and review the diff. From then on your edits are "
                 "tracked and preserved.",
             )
-    if dry_run and result.changed:
+    if dry_run and result.out_of_date:
         print("\n--check: the overlay is out of date for this project")
 
 
@@ -663,7 +727,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Report what would change and exit 1 if anything is out of date. Writes nothing.",
+        help=(
+            "Report what would change and exit 1 if the overlay would write files or a "
+            "1.x upgrade is still pending. Local edits are reported and do not fail. "
+            "Writes nothing."
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -683,7 +751,7 @@ def main(argv: list[str] | None = None) -> int:
     _report(result, dry_run=args.check)
 
     if args.check:
-        return 1 if result.changed else 0
+        return 1 if result.out_of_date else 0
     if result.changed:
         print("\nNext: uv sync && uv run python manage.py check")
     return 0
@@ -714,6 +782,10 @@ receiving harness upgrades until you re-run the overlay with `--force`.
 Business rules never live in views, serializers, forms, signals, `Model.save`, custom
 managers or querysets. See `harness_templates/app_skeleton/` for the reference layout.
 
+`users/` is cookiecutter-django's allauth app. Do not copy its views, serializers or
+templates as the pattern for new domain code — copy `harness_templates/app_skeleton/`
+instead.
+
 - Services take keyword-only arguments, call `full_clean()` before saving, and wrap
   multi-step writes in `transaction.atomic`.
 - Selectors never mutate state.
@@ -738,8 +810,9 @@ managers or querysets. See `harness_templates/app_skeleton/` for the reference l
 
 ## Skills
 
-If the harness Agent Skills are available, use `django-hacksoft` for feature work and
-`django-dx-review` before opening a pull request.
+This project ships `skills/django-hacksoft` and `skills/django-dx-review`. Use them for
+feature work and before opening a pull request. They travel with the overlay; do not
+wait for a copy from the harness repository.
 """
 
 _PROJECT_DOC = """# django-ai-harness
@@ -760,13 +833,16 @@ The overlay is idempotent and tracks the files it owns in `.django-ai-harness.js
 Files you edited locally are never overwritten; they are reported instead, and
 `--force` overrides that protection once you have reviewed the diff.
 
-Add `--check` to fail CI when the project has drifted from the pinned harness version.
+`--check` exits 1 when the overlay would write files, or when a 1.x upgrade is still
+pending. Locally edited managed files are listed and do **not** fail `--check`.
 
 ## Where things live
 
 | Path | Purpose |
 |---|---|
 | `AGENTS.md` | Architecture and DX contract for agents and humans |
+| `skills/django-hacksoft/` | Agent Skill that enforces services / selectors / thin APIs |
+| `skills/django-dx-review/` | Agent Skill for a defect-first review before a pull request |
 | `harness_templates/app_skeleton/` | Reference services / selectors / API layout |
 | `compose/pgbouncer/` | Opt-in PostgreSQL connection pooling |
 | `.django-ai-harness.json` | Overlay version and managed-file state |

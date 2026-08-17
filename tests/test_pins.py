@@ -47,6 +47,7 @@ def test_packaged_data_is_present():
     assert data_path("cookiecutter-django.pin").is_file()
     assert data_path("dev-requirements.txt").is_file()
     assert (data_path("pgbouncer") / "docker-compose.pgbouncer.yml").is_file()
+    assert (data_path("pgbouncer") / "docker-compose.pgbouncer.production.yml").is_file()
     assert (data_path("pgbouncer") / "entrypoint.sh").is_file()
 
 

@@ -334,10 +334,16 @@ SPECTACULAR_SETTINGS = {
 
 # django-linear-migrations and django-version-checks register *system checks*, so they
 # belong in base settings: that is the only way they also run under config.settings.test
-# (which imports base, not local) and therefore in CI.
-INSTALLED_APPS += ["django_linear_migrations", "django_version_checks"]
-
-VERSION_CHECKS = {
-    "python": "~=3.14.0",
-}
+# (which imports base, not local) and therefore in CI. They stay in the *dev* extra, so
+# production images that run `uv sync --no-dev` must not import them.
+try:
+    import django_linear_migrations  # noqa: F401
+    import django_version_checks  # noqa: F401
+except ImportError:
+    pass
+else:
+    INSTALLED_APPS += ["django_linear_migrations", "django_version_checks"]
+    VERSION_CHECKS = {
+        "python": "~=3.14.0",
+    }
 # <<< django-ai-harness:base

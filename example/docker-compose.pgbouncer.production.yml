@@ -1,0 +1,12 @@
+# Merge on top of docker-compose.pgbouncer.yml for production:
+#
+#   docker compose -f docker-compose.production.yml \
+#     -f docker-compose.pgbouncer.yml \
+#     -f docker-compose.pgbouncer.production.yml up -d
+#
+# `!override` replaces the local env_file rather than appending it (Compose 2.24+).
+
+services:
+  pgbouncer:
+    env_file: !override
+      - ./.envs/.production/.postgres

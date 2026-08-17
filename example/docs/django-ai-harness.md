@@ -16,13 +16,16 @@ The overlay is idempotent and tracks the files it owns in `.django-ai-harness.js
 Files you edited locally are never overwritten; they are reported instead, and
 `--force` overrides that protection once you have reviewed the diff.
 
-Add `--check` to fail CI when the project has drifted from the pinned harness version.
+`--check` exits 1 when the overlay would write files, or when a 1.x upgrade is still
+pending. Locally edited managed files are listed and do **not** fail `--check`.
 
 ## Where things live
 
 | Path | Purpose |
 |---|---|
 | `AGENTS.md` | Architecture and DX contract for agents and humans |
+| `skills/django-hacksoft/` | Agent Skill that enforces services / selectors / thin APIs |
+| `skills/django-dx-review/` | Agent Skill for a defect-first review before a pull request |
 | `harness_templates/app_skeleton/` | Reference services / selectors / API layout |
 | `compose/pgbouncer/` | Opt-in PostgreSQL connection pooling |
 | `.django-ai-harness.json` | Overlay version and managed-file state |

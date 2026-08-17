@@ -19,7 +19,10 @@ It is an ordinary cookiecutter-django project plus a handful of harness files:
 
 - Follow the project's own README for Docker and deployment.
 - Follow `AGENTS.md` for architecture — it applies to you as much as to an agent.
-- Copy `harness_templates/app_skeleton/` when starting a new app.
+- Copy `harness_templates/app_skeleton/` when starting a new app. Do not copy `users/`:
+  that app is still cookiecutter-django's allauth starter.
+- Use the project's `skills/django-hacksoft` and `skills/django-dx-review` with your
+  coding agent; the overlay installs them.
 - Seed local data with `python manage.py seed_database` instead of hand-crafted fixtures.
 
 Re-apply the overlay after a harness release:
@@ -34,17 +37,10 @@ Files you edited are reported, never overwritten. See [updating.md](updating.md)
 ## With coding agents
 
 Generated projects carry an `AGENTS.md` that Claude Code, Cursor, Codex and Copilot read
-by convention, so your architecture rules stop being something you re-type into every
-prompt.
+by convention, and two Agent Skills in `skills/` (`django-hacksoft`, `django-dx-review`).
+You do not copy those from this repository.
 
-For deeper enforcement, install the Agent Skills from [`skills/`](../skills) into your
-agent's skills directory, or point the agent at this repository:
-
-| Skill | When |
-|---|---|
-| `django-dx-scaffold` | Starting a project |
-| `django-hacksoft` | Writing or reviewing feature code |
-| `django-dx-review` | Before opening a pull request |
+`django-dx-scaffold` lives only in the harness repo, for creating a new project.
 
 ## Language
 

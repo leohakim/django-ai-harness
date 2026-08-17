@@ -19,6 +19,10 @@ receiving harness upgrades until you re-run the overlay with `--force`.
 Business rules never live in views, serializers, forms, signals, `Model.save`, custom
 managers or querysets. See `harness_templates/app_skeleton/` for the reference layout.
 
+`users/` is cookiecutter-django's allauth app. Do not copy its views, serializers or
+templates as the pattern for new domain code — copy `harness_templates/app_skeleton/`
+instead.
+
 - Services take keyword-only arguments, call `full_clean()` before saving, and wrap
   multi-step writes in `transaction.atomic`.
 - Selectors never mutate state.
@@ -43,5 +47,6 @@ managers or querysets. See `harness_templates/app_skeleton/` for the reference l
 
 ## Skills
 
-If the harness Agent Skills are available, use `django-hacksoft` for feature work and
-`django-dx-review` before opening a pull request.
+This project ships `skills/django-hacksoft` and `skills/django-dx-review`. Use them for
+feature work and before opening a pull request. They travel with the overlay; do not
+wait for a copy from the harness repository.

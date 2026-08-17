@@ -110,6 +110,14 @@ jobs:
         working-directory: example
         run: uv run pytest
 
+      - name: Settings import without the dev extra
+        working-directory: example
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+        run: |
+          uv sync --no-dev --frozen
+          uv run python -c "import django; django.setup()"
+
       - name: Overlay is idempotent against a real tree
         run: uv run django-ai-harness apply example --check
 
@@ -129,6 +137,8 @@ jobs:
             "django_ai_harness/data/cookiecutter-django.pin" \
             "django_ai_harness/data/dev-requirements.txt" \
             "django_ai_harness/data/pgbouncer/docker-compose.pgbouncer.yml" \
+            "django_ai_harness/data/skills/django-hacksoft/SKILL.md" \
+            "django_ai_harness/data/skills/django-dx-review/SKILL.md" \
             "django_ai_harness/wizard/wizard.tcss"
           do
             grep -q "$entry" /tmp/wheel.txt || {

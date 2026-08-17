@@ -11,7 +11,7 @@ from __future__ import annotations
 
 __all__ = ["OVERLAY_VERSION", "__version__"]
 
-#: Distribution version (kept in sync with ``pyproject.toml`` by ``tests/test_packaging.py``).
+#: Distribution version (kept in sync with ``pyproject.toml`` by ``tests/test_repo.py``).
 __version__ = "2.0.0"
 
 #: Overlay contract version written into ``.django-ai-harness.json`` of generated projects.

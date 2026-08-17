@@ -75,6 +75,7 @@ After either operation:
 test -f <target>/AGENTS.md
 test -f <target>/.django-ai-harness.json
 test -d <target>/harness_templates/app_skeleton
+test -f <target>/skills/django-hacksoft/SKILL.md
 uvx django-ai-harness apply <target> --check    # must exit 0
 ```
 
@@ -114,5 +115,6 @@ Summarise for the user:
 - the path created and the package name
 - how to migrate and run the server (the command prints this)
 - with PgBouncer: migrations go through `manage.py migrate --database=direct`
-- that architecture rules live in the project's `AGENTS.md`, and that the
-  `django-hacksoft` skill enforces them during feature work
+- that architecture rules live in the project's `AGENTS.md` and `skills/django-hacksoft`,
+  and that `users/` is cookiecutter's allauth app — new domain code copies
+  `harness_templates/app_skeleton/`, not `users/`

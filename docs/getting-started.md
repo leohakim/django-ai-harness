@@ -124,7 +124,8 @@ uv sync
 uv run python manage.py check
 ```
 
-Add `--check` to your project's CI to fail the build when it drifts behind the harness:
+Add `--check` to your project's CI. It fails when the overlay would write files, or
+when a 1.x upgrade is still pending. Local edits are reported and do not fail the check:
 
 ```yaml
 - run: uvx django-ai-harness apply . --check

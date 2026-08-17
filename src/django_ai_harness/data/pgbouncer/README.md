@@ -28,8 +28,14 @@ POSTGRES_HOST_DIRECT=postgres
 POSTGRES_PORT_DIRECT=5432
 ```
 
-For production, also point the `pgbouncer` service's `env_file` at
-`./.envs/.production/.postgres` and use `docker-compose.production.yml`.
+For production, merge the production fragment so `env_file` points at
+`./.envs/.production/.postgres`:
+
+```bash
+docker compose -f docker-compose.production.yml \
+  -f docker-compose.pgbouncer.yml \
+  -f docker-compose.pgbouncer.production.yml up -d
+```
 
 ## Migrations must bypass the pooler
 
@@ -51,6 +57,7 @@ Inside the `USE_PGBOUNCER` block of `config/settings/local.py` and `production.p
 | Setting | Value | Why |
 |---|---|---|
 | `CONN_MAX_AGE` | `0` | Persistent Django connections would pin a pooled server connection |
+| `HOST` / `PORT` | `POSTGRES_HOST` / `POSTGRES_PORT` | Wins even when `DATABASE_URL` already set a host |
 | `DISABLE_SERVER_SIDE_CURSORS` | `True` | Server-side cursors cannot survive across transactions |
 | `DATABASES["direct"]` | unpooled clone | DDL path that skips the pooler |
 
@@ -98,6 +105,7 @@ volumes:
 | Path | Role |
 |---|---|
 | `docker-compose.pgbouncer.yml` | Compose merge fragment, at the project root |
+| `docker-compose.pgbouncer.production.yml` | Overrides `env_file` to `.envs/.production/.postgres` |
 | `compose/pgbouncer/entrypoint.sh` | Maps `POSTGRES_*` onto the image's `DB_*` |
 | `compose/pgbouncer/postgres/*.conf` | Optional PostgreSQL tuning presets |
 

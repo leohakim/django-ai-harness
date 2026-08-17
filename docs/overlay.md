@@ -70,21 +70,39 @@ each file it owns:
 That last row matters: the overlay never adopts a file it did not create. The state file
 carries no timestamps, so it stays byte-stable and the golden example does not churn.
 
+Edits *inside* a marker block (`# >>> django-ai-harness:local`, `:base`, `:pgbouncer`,
+`:urls`) are overlay territory: the next `apply` replaces the block in place, with no
+skip and no `--force`. Whole-file ownership is hashed; blocks are not. Put project-local
+additions *outside* the markers.
+
+### `--check`
+
+`--check` is dry-run plus an exit code:
+
+| Situation | Exit |
+|---|---|
+| Overlay would create or update a file | 1 |
+| 1.x upgrade still pending (`skipped (untracked, pre-2.0)`) | 1 |
+| Only locally edited managed files (`skipped (local edits)`) | 0 |
+| Tree already matches | 0 |
+
 ## What it changes
 
 | Target | Change |
 |---|---|
 | `pyproject.toml` | Merges the pinned DX dependencies into `[dependency-groups].dev` |
-| `config/settings/base.py` | Settings hygiene notes; registers `django_linear_migrations` and `django_version_checks`; sets `VERSION_CHECKS` from the project's `.python-version` |
+| `config/settings/base.py` | Settings hygiene notes; registers `django_linear_migrations` and `django_version_checks` behind an `ImportError` guard; sets `VERSION_CHECKS` from the project's `.python-version` |
 | `config/settings/local.py` | `django_browser_reload`, `django_read_only`, `django_rich`, `SHELL_PLUS`, Rich console handler |
 | `config/settings/local.py`, `production.py` | Inert `USE_PGBOUNCER` block |
 | `config/urls.py` | Browser-reload URLs behind `DEBUG`, guarded by `ImportError` |
 | `AGENTS.md` | The architecture and DX contract |
+| `skills/django-hacksoft/`, `skills/django-dx-review/` | Agent Skills that travel with the project |
 | `<package>/users/management/commands/seed_database.py` | Factory Boy seeding command |
 | `<package>/tests/test_pending_migrations.py` | Fails when models drifted from migrations |
 | `harness_templates/app_skeleton/` | Reference services, selectors and thin APIs |
 | `*/migrations/max_migration.txt` | Tracks the latest migration for `django-linear-migrations` |
 | `compose/pgbouncer/`, `docker-compose.pgbouncer.yml` | Opt-in pooling assets |
+| `docker-compose.pgbouncer.production.yml` | Production `env_file` override |
 | `docs/django-ai-harness.md` | How to upgrade |
 
 ### Why system checks live in base settings
@@ -92,7 +110,8 @@ carries no timestamps, so it stays byte-stable and the golden example does not c
 `django-linear-migrations` and `django-version-checks` register Django *system checks*.
 `config/settings/test.py` imports from `base`, not `local`, so a check registered only in
 local settings never runs during tests — which is exactly when a migration conflict
-should be caught. They therefore go in base. Purely interactive tooling
+should be caught. They therefore go in base, guarded by `ImportError` so a production
+image that ran `uv sync --no-dev` still boots. Purely interactive tooling
 (browser-reload, read-only, Rich) stays local.
 
 ### Why the Rich handler is patched, not assigned

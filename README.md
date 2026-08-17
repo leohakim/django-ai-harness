@@ -60,6 +60,12 @@ uv tool install 'django-ai-harness[wizard]'
 The harness itself runs on Python 3.11+. Generated projects target whatever the pinned
 cookiecutter-django targets (currently 3.14).
 
+Or pin the version if you need the same generator six months from now:
+
+```bash
+uvx django-ai-harness==2.0.0 new ~/Projects/my_shop "My Shop"
+```
+
 **Docker is required to generate a project**, not only to run it: cookiecutter-django's
 post-generation hook resolves dependencies inside a container whenever `use_docker=y`
 (the default). Pass `--use-docker n` and it runs on your machine instead. See
@@ -110,8 +116,9 @@ uvx django-ai-harness apply .          # apply or upgrade the overlay
 uvx django-ai-harness apply . --check  # exit 1 if the project drifted; writes nothing
 ```
 
-`--check` is designed for your own CI: it fails the build when a project has fallen
-behind the harness version it was generated with.
+`--check` is designed for your own CI: it fails the build when the overlay would
+write files, or when a 1.x upgrade is still pending. Files you edited locally are
+reported and do **not** fail `--check`.
 
 ### Inspect what you would get
 
@@ -128,7 +135,7 @@ toolbar, Factory Boy, an optional DRF setup). The overlay adds the layer above t
 
 | Area | What you get |
 |---|---|
-| **Agent contract** | `AGENTS.md` describing the architecture, the DX rules, and where things live |
+| **Agent contract** | `AGENTS.md` plus `skills/django-hacksoft` and `skills/django-dx-review` |
 | **Architecture** | `harness_templates/app_skeleton/` — services, selectors, thin APIs with nested serializers |
 | **Local DX** | `django-browser-reload`, `django-rich` console logging, `django-read-only`, IPython `shell_plus` |
 | **Migration safety** | `django-linear-migrations` with `max_migration.txt`, plus a pending-migrations test |
@@ -139,7 +146,8 @@ toolbar, Factory Boy, an optional DRF setup). The overlay adds the layer above t
 
 System checks (`django-linear-migrations`, `django-version-checks`) are registered in
 **base** settings so they also run under `config.settings.test`, and therefore in CI.
-Purely local tooling stays in **local** settings.
+They stay in the *dev* extra and are imported only when installed, so production images
+that run `uv sync --no-dev` still boot. Purely local tooling stays in **local** settings.
 
 Details: [docs/overlay.md](docs/overlay.md).
 
@@ -174,18 +182,18 @@ with the hash of the content it last wrote:
 ## Using it with AI agents
 
 Generated projects carry an `AGENTS.md` read by Claude Code, Cursor, Codex, Copilot and
-anything else honouring the convention.
-
-The [`skills/`](skills) directory holds three Agent Skills, in the portable
-`SKILL.md` format:
+anything else honouring the convention, plus two Agent Skills in `skills/`:
 
 | Skill | Use it for |
 |---|---|
-| [`django-dx-scaffold`](skills/django-dx-scaffold/SKILL.md) | Creating a new project the harness way |
 | [`django-hacksoft`](skills/django-hacksoft/SKILL.md) | Implementing and reviewing feature work |
 | [`django-dx-review`](skills/django-dx-review/SKILL.md) | Auditing a project before a pull request |
 
-Copy them into your agent's skills directory, or point the agent at this repository.
+They are installed by the overlay. You do not copy them by hand.
+
+This repository also has [`django-dx-scaffold`](skills/django-dx-scaffold/SKILL.md), used
+to create a new project the harness way. That one stays here.
+
 See [docs/for-agents.md](docs/for-agents.md).
 
 ---
@@ -215,6 +223,15 @@ django-ai-harness/
 | On a `v*` tag | [`release.yml`](.github/workflows/release.yml) | Verifies the tag matches the version, then publishes to PyPI via Trusted Publishing |
 
 Nothing merges itself. The automation prepares reviewable work; a human decides.
+
+---
+
+## What's next
+
+Tracked as GitHub issues, not as silent TODOs:
+
+- [#1 Architecture linter](https://github.com/leohakim/django-ai-harness/issues/1) for services / selectors
+- [#2 Professional SaaS `users/` overlay](https://github.com/leohakim/django-ai-harness/issues/2)
 
 ---
 

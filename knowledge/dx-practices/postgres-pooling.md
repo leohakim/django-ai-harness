@@ -82,9 +82,12 @@ Keep PostgreSQL's `max_connections` low and raise PgBouncer's `max_client_conn` 
 1. The project has a `postgres` service (`use_docker=y`, or an equivalent of your own).
 2. The overlay has been applied, so the templates are present.
 3. Either `--with-pgbouncer`, or set `USE_PGBOUNCER=True`, `POSTGRES_HOST=pgbouncer`,
-   `POSTGRES_PORT=6432`, `CONN_MAX_AGE=0` yourself.
+   `POSTGRES_PORT=6432` and `CONN_MAX_AGE=0` yourself. The overlay then points
+   `DATABASES["default"]["HOST"]` at the pooler even if `DATABASE_URL` already named
+   Postgres.
 4. Merge `docker-compose.pgbouncer.yml` into your Compose invocation.
-5. For production, point the pgbouncer `env_file` at `./.envs/.production/.postgres`.
+5. For production, also merge `docker-compose.pgbouncer.production.yml` so `env_file`
+   points at `./.envs/.production/.postgres`.
 6. Run migrations with `--database=direct`.
 
 The published port binds to `127.0.0.1:6432`. A pooler reachable from other interfaces is

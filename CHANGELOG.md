@@ -19,7 +19,8 @@ A correctness, packaging and maintainability release. Everything the harness pro
 - **Installable package.** `uvx django-ai-harness new ~/Projects/app "App"` works with no
   clone. Subcommands: `new`, `wizard`, `apply`, `info`.
 - **`apply --check`**, which reports overlay drift and exits non-zero without writing.
-  Intended for the CI of generated projects.
+  It fails when the overlay would write files, or when a 1.x upgrade is still pending.
+  Locally edited managed files are listed and do not fail the check.
 - **Upgrade-aware overlay.** Files the overlay owns are tracked in
   `.django-ai-harness.json` with a content hash, so a harness upgrade propagates to files
   you never touched while locally edited files are reported and preserved. `--force`
@@ -32,7 +33,12 @@ A correctness, packaging and maintainability release. Everything the harness pro
 - **Upstream drift review** now opens or updates a tracking issue instead of writing a
   diff into a log.
 - **Release workflow** publishing to PyPI through Trusted Publishing on a `v*` tag.
+  `workflow_dispatch` was removed: a manual run would otherwise skip the tag/version
+  check and publish whatever was checked out.
 - **Bilingual wizard** (English and Spanish) selected with `--lang` or the environment.
+- **Agent Skills in generated projects.** `django-hacksoft` and `django-dx-review` are
+  written into `skills/` by the overlay, so agents working in the project do not depend
+  on a clone of this repository. `django-dx-scaffold` stays in the harness repo.
 - **`DATABASES["direct"]`** when PgBouncer is enabled, making `POSTGRES_HOST_DIRECT` a
   live setting: `python manage.py migrate --database=direct`. It carries
   `TEST = {"MIRROR": "default"}` so the test runner does not create a second database.
@@ -52,11 +58,18 @@ A correctness, packaging and maintainability release. Everything the harness pro
   line anchors; blocks written by 1.x are migrated automatically.
 - **System checks now run in CI.** `django-linear-migrations` and `django-version-checks`
   moved to base settings; in 1.x they were local-only, and `config.settings.test` imports
-  base, so their checks never ran during tests.
+  base, so their checks never ran during tests. They stay in the *dev* extra and are
+  registered behind an `ImportError` guard, so production images that run
+  `uv sync --no-dev` still boot.
 - **Rich logging extends the upstream configuration** instead of replacing `LOGGING`
   wholesale and silently discarding cookiecutter-django's loggers and formatters.
 - **PgBouncer entrypoint reports missing credentials.** Under `set -u`, an unset
   `POSTGRES_USER` aborted the script before the check that was meant to explain it.
+- **PgBouncer settings override `HOST`/`PORT`** when `USE_PGBOUNCER` is true, so a
+  `DATABASE_URL` that pointed at Postgres does not bypass the pooler.
+- **PgBouncer healthcheck** uses `nc -z` instead of `pg_isready`, which is not on PATH
+  in the `edoburu/pgbouncer` image. Production `env_file` is a separate Compose fragment
+  (`docker-compose.pgbouncer.production.yml`) rather than a comment to edit by hand.
 - **`config/urls.py` catches `ImportError`** rather than swallowing every exception.
 - **`SECURITY.md` no longer claims `example/.envs/` is committed.** It is not:
   the example is generated with `keep_local_envs_in_vcs=n`.
@@ -88,12 +101,22 @@ A correctness, packaging and maintainability release. Everything the harness pro
 
 ```bash
 uvx django-ai-harness apply /path/to/project
+# Commit. Then adopt the files 1.x wrote without recording ownership:
+uvx django-ai-harness apply /path/to/project --force
 cd /path/to/project && uv sync
 ```
 
-The overlay migrates 1.x marker blocks, moves the DX dependencies from `>=` to `==`, and
-adopts the files it recognises. Files you edited are reported, not overwritten. Review
-the diff before committing.
+The first run migrates 1.x marker blocks and moves the DX dependencies from `>=` to
+`==`. Files 1.x wrote (`AGENTS.md`, templates) are reported as
+`skipped (untracked, pre-2.0)` and `--check` stays red until `--force` adopts them.
+Review the diff before committing the second run.
+
+### Deferred
+
+- Architecture linter for services / selectors:
+  [#1](https://github.com/leohakim/django-ai-harness/issues/1)
+- Overlay a professional SaaS `users/` surface:
+  [#2](https://github.com/leohakim/django-ai-harness/issues/2)
 
 ## [1.2.0] - 2026-08-10
 
