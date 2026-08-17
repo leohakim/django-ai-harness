@@ -209,6 +209,35 @@ def test_docker_requirement_is_documented_where_users_hit_it():
     assert "137" in getting_started
 
 
+def test_claude_settings_are_valid_and_portable():
+    """A malformed settings.json silently disables every rule in it.
+
+    The file is committed, so it must also stay portable: an absolute path scopes a rule
+    to one machine, which both leaks the author's home directory into a public repository
+    and makes the rule a no-op for every other contributor.
+    """
+    import json  # noqa: PLC0415
+
+    settings = json.loads((REPO_ROOT / ".claude/settings.json").read_text(encoding="utf-8"))
+    permissions = settings["permissions"]
+
+    assert permissions["allow"], "the allow list should not be empty"
+    for rule in permissions["allow"] + permissions["deny"]:
+        assert "/Users/" not in rule, rule
+        assert not rule.startswith("/"), rule
+
+    # Publishing is irreversible and belongs to CI, not to a local shell.
+    denied = " ".join(permissions["deny"])
+    assert "uv publish" in denied
+    assert "twine upload" in denied
+    assert "git push --tags" in denied
+
+
+def test_personal_claude_settings_are_gitignored():
+    gitignore = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert ".claude/settings.local.json" in gitignore
+
+
 def test_shell_scripts_are_executable_and_strict():
     for script in sorted((REPO_ROOT / "scripts").glob("*.sh")):
         text = script.read_text(encoding="utf-8")

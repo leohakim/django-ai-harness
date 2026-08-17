@@ -28,6 +28,10 @@ dependency-updates.md
 .idea/
 .vscode/
 
+# Claude Code: .claude/settings.json is shared with contributors and committed.
+# Personal overrides belong here, and would otherwise leak local paths into a public repo.
+.claude/settings.local.json
+
 # Secrets
 .env
 .env.*

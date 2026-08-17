@@ -12,6 +12,19 @@ project's own `AGENTS.md` instead.
 3. Portable Agent Skills (`skills/`) that enforce those practices in user projects.
 4. A golden `example/` that CI regenerates to catch upstream drift.
 
+## `example/` is generated, not source
+
+`example/` is a fixture produced wholesale by `./scripts/refresh-example.sh`, which
+deletes and rewrites the whole directory. Treat it as build output:
+
+- **Never hand-edit it.** Change the overlay and regenerate; edits are discarded on the
+  next run, and CI fails when the committed tree does not match a fresh regeneration.
+- **Never infer this project's conventions from it.** It is a generated *Django app*.
+  Its `justfile` and `docs/Makefile` targets (`up`, `down`, `apidocs`, `livehtml`) belong
+  to that app. There is no Makefile or justfile at the repository root — the toolchain
+  here is `uv`.
+- Reading it is useful for one thing: seeing what the overlay actually produces.
+
 ## Read first
 
 - `README.md`

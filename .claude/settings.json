@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(uv sync *)",
+      "Bash(uv build *)",
+      "Bash(uv lock --check *)",
+      "Bash(uv run pytest *)",
+      "Bash(uv run --extra wizard pytest *)",
+      "Bash(uv run ruff *)",
+      "Bash(uv run pre-commit *)",
+      "Bash(uv run django-ai-harness info *)",
+      "Bash(uv run django-ai-harness apply example --check)",
+      "Bash(python scripts/bump_dev_requirements.py --check)",
+      "Bash(./scripts/refresh-example.sh)"
+    ],
+    "deny": [
+      "Bash(uv publish *)",
+      "Bash(twine upload *)",
+      "Bash(python -m twine *)",
+      "Bash(uvx twine *)",
+      "Bash(git push --tags *)",
+      "Bash(git push --follow-tags *)",
+      "Bash(git push origin v*)"
+    ],
+    "autoMode": {
+      "environment": [
+        "$defaults",
+        "**Generated, not source**: `example/` is a golden fixture produced wholesale by `./scripts/refresh-example.sh`. Never infer project tooling or conventions from it, and never hand-edit it — change the overlay and regenerate. Its `justfile` and `docs/Makefile` targets (`up`, `down`, `apidocs`, `livehtml`) belong to the generated Django app and are not how this repository is worked on.",
+        "**Project toolchain**: `uv` only, per CONTRIBUTING.md — `uv sync --extra wizard`, `uv run pytest`, `uv run ruff check .`, `uv run pre-commit`, `./scripts/refresh-example.sh`. There is no Makefile or justfile at the repository root.",
+        "**Publishing is out of bounds**: releases go through `.github/workflows/release.yml` on a `v*` tag, using PyPI Trusted Publishing. A local `uv publish` or `twine upload` bypasses the reviewed release path, and PyPI does not allow re-uploading a version — it cannot be undone."
+      ],
+      "hard_deny": [
+        "$defaults",
+        "Uploading a distribution to PyPI or any package index (`uv publish`, `twine upload`, `python -m twine`). Irreversible: a released version can never be replaced. Releases are published by CI from a tag.",
+        "Pushing a `v*` tag. That tag is the release trigger, so pushing it publishes to PyPI."
+      ],
+      "soft_deny": [
+        "$defaults",
+        "Rewriting the golden `example/` by hand instead of running `./scripts/refresh-example.sh`. Hand edits are silently discarded on the next regeneration."
+      ]
+    }
+  }
+}
