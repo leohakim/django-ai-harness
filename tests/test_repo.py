@@ -178,6 +178,37 @@ def test_readme_documents_the_published_entry_point():
     assert "uvx django-ai-harness apply" in readme
 
 
+def test_release_environment_matches_the_documented_trusted_publisher():
+    """PyPI matches the OIDC claim on workflow *and* environment name.
+
+    Renaming either without updating the publisher on PyPI makes releases fail at the
+    publish step, after a green build — so the documented values are load-bearing.
+    """
+    release = (REPO_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    maintaining = (REPO_ROOT / "docs/maintaining.md").read_text(encoding="utf-8")
+
+    assert "name: pypi" in release
+    assert "`pypi`" in maintaining
+    assert "`release.yml`" in maintaining
+
+
+def test_pending_setup_is_recorded():
+    """One-time setup that is not done yet stays visible instead of living in a memory."""
+    maintaining = (REPO_ROOT / "docs/maintaining.md").read_text(encoding="utf-8")
+    assert "## Pending setup" in maintaining
+    for item in ("Trusted Publishing", "Discussions"):
+        assert item in maintaining, item
+
+
+def test_docker_requirement_is_documented_where_users_hit_it():
+    """cookiecutter-django resolves dependencies in a container when use_docker=y."""
+    for relative in ("README.md", "docs/getting-started.md", "CONTRIBUTING.md"):
+        text = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        assert "Docker" in text, relative
+    getting_started = (REPO_ROOT / "docs/getting-started.md").read_text(encoding="utf-8")
+    assert "137" in getting_started
+
+
 def test_shell_scripts_are_executable_and_strict():
     for script in sorted((REPO_ROOT / "scripts").glob("*.sh")):
         text = script.read_text(encoding="utf-8")

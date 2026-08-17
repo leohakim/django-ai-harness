@@ -1,7 +1,12 @@
 name: Release
 
 # Publishes to PyPI via Trusted Publishing (OIDC): no API token is stored in the repo.
-# Configure the publisher once at https://pypi.org/manage/project/django-ai-harness/settings/publishing/
+#
+# SETUP REQUIRED before the first tag: the publisher must be registered on PyPI, or
+# the `publish` job below fails after a successful build. Owner `leohakim`, repository
+# `django-ai-harness`, workflow `release.yml`, environment `pypi`.
+# Step-by-step, including the pending-publisher form for a project that does not exist
+# on PyPI yet: docs/maintaining.md -> Pending setup.
 
 on:
   push:

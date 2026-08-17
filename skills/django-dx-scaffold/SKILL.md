@@ -12,10 +12,15 @@ django-ai-harness overlay**, or upgrade the overlay in a project that already ha
 
 ## Prerequisites
 
-`uv` must be installed. Everything else is fetched on demand — there is nothing to clone
-and no separate cookiecutter install.
+- `uv` — if it is missing, point the user at https://docs.astral.sh/uv/ and stop.
+- **Docker**, unless generating with `--use-docker n`.
 
-If `uv` is missing, point the user at https://docs.astral.sh/uv/ and stop.
+There is nothing to clone and no separate cookiecutter install.
+
+Docker is needed at *generation* time, not just to run the app: cookiecutter-django's
+post-generation hook resolves dependencies inside a container whenever `use_docker=y`.
+Check that Docker is running before starting, and if the user does not want it, generate
+with `--use-docker n` rather than letting the hook fail halfway.
 
 ## Creating a project
 
@@ -91,6 +96,16 @@ it, export `DATABASE_URL`.
 - Do not copy copyrighted book text into the project.
 - PgBouncer is opt-in; the default stays direct PostgreSQL.
 - Never switch the database engine away from PostgreSQL when enabling pooling.
+
+## When generation fails
+
+`Error installing local dependencies: ... exit status 137` means the container running
+`uv` was killed, almost always out of memory. Retry once. If it fails again, tell the
+user to raise Docker's memory limit, or offer `--use-docker n`. Do not report this as a
+harness defect: it comes from cookiecutter-django's own hook.
+
+`scaffold` builds into a temporary directory and only moves it into place on success, so
+a failed run leaves nothing behind and the target path is still free for a retry.
 
 ## Handing off
 

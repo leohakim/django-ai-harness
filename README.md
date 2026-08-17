@@ -60,6 +60,11 @@ uv tool install 'django-ai-harness[wizard]'
 The harness itself runs on Python 3.11+. Generated projects target whatever the pinned
 cookiecutter-django targets (currently 3.14).
 
+**Docker is required to generate a project**, not only to run it: cookiecutter-django's
+post-generation hook resolves dependencies inside a container whenever `use_docker=y`
+(the default). Pass `--use-docker n` and it runs on your machine instead. See
+[docs/getting-started.md](docs/getting-started.md#requirements).
+
 ---
 
 ## Usage
@@ -229,7 +234,7 @@ Full notes: [docs/book-attribution.md](docs/book-attribution.md).
 
 Practices should be justified, not asserted. Open an issue describing the problem and
 the source before a large pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
-[Code of Conduct](CODE_OF_CONDUCT.md).
+[Code of Conduct](CODE_OF_CONDUCT.md). Maintainers: [docs/maintaining.md](docs/maintaining.md).
 
 ```bash
 git clone https://github.com/leohakim/django-ai-harness.git

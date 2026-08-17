@@ -4,10 +4,16 @@
 
 - [uv](https://docs.astral.sh/uv/) — everything else is fetched on demand
 - Git
-- Docker, if you want the generated Compose stack (the default)
+- **Docker**, unless you pass `--use-docker n`
 
 The harness runs on Python 3.11 or newer. The project it generates targets the Python
 version of the pinned cookiecutter-django, currently 3.14; `uv` installs that for you.
+
+> **Docker is needed to *generate* the project, not only to run it.**
+> cookiecutter-django's post-generation hook fills in `pyproject.toml` by running `uv`
+> inside a container it builds for the purpose. That happens whenever `use_docker=y`,
+> which is the default. With `--use-docker n` the hook runs `uv` on your machine and
+> Docker is not involved at all.
 
 ## Create a project
 
@@ -141,3 +147,13 @@ Python identifier. Pass `--slug` explicitly.
 **`apply` reports "skipped (local edits)"** — you edited a file the overlay owns, so it
 was preserved. Review the upstream version, then re-run with `--force` if you want the
 harness copy back.
+
+**`Error installing local dependencies: ... exit status 137`** — cookiecutter-django's
+post-generation hook runs `uv` in a container, and that container was killed, almost
+always for running out of memory. Retry; if it keeps happening, raise Docker's memory
+limit, or generate with `--use-docker n`, which skips the container entirely. This is
+upstream behaviour, not something the harness controls — see
+[maintaining.md](maintaining.md).
+
+**`docker: command not found` during generation** — same cause. Either start Docker or
+pass `--use-docker n`.

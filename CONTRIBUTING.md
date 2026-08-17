@@ -12,6 +12,10 @@ uv run pre-commit install
 uv run pytest
 ```
 
+You need Docker to run `./scripts/refresh-example.sh`: cookiecutter-django's
+post-generation hook resolves dependencies inside a container. The test suite itself
+needs nothing but `uv`.
+
 ## What belongs here
 
 - Distilled practices: checklists, configuration, overlay behaviour
@@ -97,7 +101,8 @@ generated project's own test suite against PostgreSQL, and a wheel-contents chec
 
 ## Releasing
 
-Maintainers only:
+Maintainers only. Full runbook, plus the one-time setup still outstanding, in
+[docs/maintaining.md](docs/maintaining.md).
 
 1. Update `version` in `pyproject.toml` and `__version__` in
    `src/django_ai_harness/__init__.py` (a test enforces that they match).
@@ -105,7 +110,8 @@ Maintainers only:
 3. Tag and push: `git tag v2.0.1 && git push --tags`.
 
 `release.yml` verifies the tag matches the package version, runs the tests, and publishes
-to PyPI via Trusted Publishing.
+to PyPI via Trusted Publishing — which has to be registered on PyPI first. That step is
+still pending; see [docs/maintaining.md](docs/maintaining.md#pending-setup).
 
 ## Licence
 

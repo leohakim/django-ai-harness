@@ -1,3 +1,6 @@
+# NOTE: the Discussions link below 404s until Discussions is enabled in
+# Settings -> General -> Features. Blank issues are off, so that link is the only
+# route for questions. See docs/maintaining.md -> Pending setup.
 blank_issues_enabled: false
 contact_links:
   - name: Question or idea
