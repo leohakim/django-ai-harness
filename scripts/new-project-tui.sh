@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Guided Textual TUI for creating a django-ai-harness project.
+# Guided Textual wizard from a source checkout of django-ai-harness.
+#
+# Installed users should prefer:
+#   uvx --from 'django-ai-harness[wizard]' django-ai-harness wizard
 set -euo pipefail
 
 HARNESS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-command -v uv >/dev/null || { echo "error: uv not found"; exit 1; }
-command -v cookiecutter >/dev/null || { echo "error: cookiecutter not found"; exit 1; }
+command -v uv >/dev/null || { echo "error: uv is required — https://docs.astral.sh/uv/" >&2; exit 1; }
 
-cd "${HARNESS_ROOT}"
-exec uv run --with textual python "${HARNESS_ROOT}/scripts/wizard/app.py"
+exec uv run --project "${HARNESS_ROOT}" --extra wizard django-ai-harness wizard "$@"

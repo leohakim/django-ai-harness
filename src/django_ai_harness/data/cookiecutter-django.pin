@@ -1,0 +1,12 @@
+# Single source of truth for the cookiecutter-django git ref used by the harness.
+#
+# Consumed by:
+#   - django_ai_harness.pins.cookiecutter_ref()
+#   - scripts/refresh-example.sh
+#   - .github/workflows/ci.yml
+#
+# Bump intentionally, only after validating the overlay against the new upstream:
+#   COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh
+#
+# Override at runtime with the COOKIECUTTER_DJANGO_REF environment variable.
+cdbe7265c79f43fd3e22c4527a97c8c7a5c72a5b
