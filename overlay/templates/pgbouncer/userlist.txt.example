@@ -1,5 +1,0 @@
-# Format: "username" "password"
-# Use the same credentials as POSTGRES_USER / POSTGRES_PASSWORD in .envs/.*/.postgres
-# For scram-sha-256, plain-text passwords in userlist work with recent PgBouncer builds;
-# prefer generating SCRAM verifiers in locked-down environments.
-"REPLACE_WITH_POSTGRES_USER" "REPLACE_WITH_POSTGRES_PASSWORD"
