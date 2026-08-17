@@ -1,0 +1,89 @@
+name: Biweekly DX dependency review
+
+# The harness pins the DX dependencies it installs into generated projects with `==`,
+# which is what makes regeneration reproducible. The trade-off is that the pins need a
+# deliberate owner, so this job reviews them on the 1st and the 15th, regenerates the
+# golden example, runs the tests, and opens a pull request with the result.
+#
+# Nothing merges itself: a human reviews a green pull request.
+
+on:
+  schedule:
+    - cron: "0 6 1,15 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Review pinned DX dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Check PyPI for newer releases
+        id: bump
+        run: |
+          python scripts/bump_dev_requirements.py
+          if git diff --quiet -- src/django_ai_harness/data/dev-requirements.txt; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'summary<<SUMMARY'
+              cat dependency-updates.md
+              echo 'SUMMARY'
+            } >> "$GITHUB_OUTPUT"
+          fi
+          rm -f dependency-updates.md
+
+      - name: Install the Python the generated project targets
+        if: steps.bump.outputs.changed == 'true'
+        run: uv python install 3.14
+
+      - name: Regenerate the golden example
+        if: steps.bump.outputs.changed == 'true'
+        run: ./scripts/refresh-example.sh
+
+      - name: Harness test suite
+        if: steps.bump.outputs.changed == 'true'
+        run: uv run --extra wizard pytest -q
+
+      - name: Django system checks on the regenerated project
+        if: steps.bump.outputs.changed == 'true'
+        working-directory: example
+        env:
+          # `manage.py check` never opens a connection; the URL only has to parse.
+          DATABASE_URL: postgres://harness:harness@127.0.0.1:5432/harness
+        run: |
+          uv sync
+          uv run python manage.py check --settings=config.settings.test
+
+      - name: Open a pull request
+        if: steps.bump.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/dx-dependencies
+          base: main
+          title: "chore(deps): biweekly DX dependency review"
+          commit-message: "chore(deps): bump pinned DX dependencies"
+          labels: dependencies
+          delete-branch: true
+          body: |
+            Automated biweekly review of the DX dependencies the overlay installs into
+            generated projects.
+
+            ${{ steps.bump.outputs.summary }}
+
+            The golden `example/` has been regenerated and the harness test suite passed
+            on this branch. Review the diff, then merge to roll the new pins out to
+            everyone who runs `django-ai-harness apply`.
+
+            Ref: `src/django_ai_harness/data/dev-requirements.txt`

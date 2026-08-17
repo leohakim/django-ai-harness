@@ -1,0 +1,43 @@
+name: Practice proposal
+description: Propose a developer-experience or architecture practice for the harness.
+labels: [practice]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does it solve
+      description: Describe the pain a Django project feels without this practice.
+    validations:
+      required: true
+  - type: textarea
+    id: practice
+    attributes:
+      label: The practice
+      description: What projects should do, concretely.
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Blog post, package documentation, or styleguide backing this up.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Where should it live
+      multiple: true
+      options:
+        - knowledge/ only (documented, opt-in)
+        - overlay (every new project gets it)
+        - a skill (agents enforce it)
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Trade-offs
+      description: What it costs. Every practice costs something.
+    validations:
+      required: true

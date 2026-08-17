@@ -1,77 +1,146 @@
-name: django-ai-harness CI
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_COLOR: "1"
 
 jobs:
-  overlay-smoke:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - uses: actions/setup-python@v5
+      - run: uv run ruff check --output-format=github .
+      - run: uv run ruff format --check .
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.14"
-      - name: Install cookiecutter
-        run: uv tool install cookiecutter
-      - name: Read cookiecutter pin
-        id: pin
-        run: |
-          REF="$(grep -v '^[[:space:]]*#' COOKIECUTTER_PIN | grep -v '^[[:space:]]*$' | head -n1)"
-          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
-      - name: Refresh example (cookiecutter + overlay)
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - run: uv run --extra wizard pytest --cov --cov-report=term-missing
+
+  golden-example:
+    name: Golden example
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
         env:
-          COOKIECUTTER_DJANGO_REF: ${{ steps.pin.outputs.ref }}
-        run: |
-          chmod +x scripts/*.sh
-          ./scripts/refresh-example.sh
-      - name: Golden example must match regenerated tree
+          POSTGRES_DB: harness
+          POSTGRES_USER: harness
+          POSTGRES_PASSWORD: harness
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://harness:harness@localhost:5432/harness
+      # cookiecutter-django's local settings read USE_DOCKER to decide on debug-toolbar
+      # internal IPs. CI runs outside Compose.
+      USE_DOCKER: "no"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the Python the generated project targets
+        run: uv python install 3.14
+
+      - name: Regenerate example/ from the pinned template
+        run: ./scripts/refresh-example.sh
+
+      # The overlay is hermetic, so regeneration is byte-for-byte reproducible.
+      # uv.lock is the one file allowed to move (transitive dependencies resolve
+      # freshly); its consistency is asserted with `uv lock --check` instead.
+      - name: example/ must match the regenerated tree
         run: |
           git add -A example
-          git diff --cached --exit-code -- example \
-            || (echo "::error::example/ is stale; run ./scripts/refresh-example.sh and commit" && exit 1)
-      - name: Overlay marker present
-        run: test -f example/.django-ai-harness.json
-      - name: AGENTS.md present
-        run: test -f example/AGENTS.md
-      - name: Syntax-check overlay + scaffold
-        run: |
-          python3 -m py_compile overlay/apply.py
-          python3 -m py_compile scripts/lib/scaffold.py
-          python3 -m py_compile scripts/lib/cli_scaffold.py
-          python3 -m py_compile scripts/wizard/app.py
-          python3 -m py_compile scripts/wizard/steps.py
-      - name: Sync example deps
+          git diff --cached --exit-code -- example ':(exclude)example/uv.lock' \
+            || {
+              echo "::error::example/ is stale — run ./scripts/refresh-example.sh and commit"
+              exit 1
+            }
+
+      - name: Lockfile agrees with pyproject.toml
+        working-directory: example
+        run: uv lock --check
+
+      - name: Install the generated project
         working-directory: example
         run: uv sync
-      - name: Django check (local settings, dummy DB env)
+
+      - name: Django system checks
         working-directory: example
-        env:
-          USE_DOCKER: "no"
-          POSTGRES_DB: harness
-          POSTGRES_USER: harness
-          POSTGRES_PASSWORD: harness
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: "5432"
-        run: uv run python manage.py check --settings=config.settings.local
-      - name: seed_database command is registered
-        working-directory: example
-        env:
-          USE_DOCKER: "no"
-          POSTGRES_DB: harness
-          POSTGRES_USER: harness
-          POSTGRES_PASSWORD: harness
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: "5432"
-        run: uv run python manage.py help seed_database
-      - name: Docs presence
         run: |
-          test -f README.md
-          test -f COOKIECUTTER_PIN
-          test -f docs/getting-started.md
-          test -f knowledge/book-map.md
-          test -f knowledge/dx-practices/postgres-pooling.md
+          uv run python manage.py check --settings=config.settings.local
+          uv run python manage.py check --settings=config.settings.test
+
+      - name: seed_database is discoverable
+        working-directory: example
+        run: uv run python manage.py help seed_database
+
+      - name: Test suite of the generated project
+        working-directory: example
+        run: uv run pytest
+
+      - name: Overlay is idempotent against a real tree
+        run: uv run django-ai-harness apply example --check
+
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv build
+      - name: Packaged data must ship in the wheel
+        run: |
+          python -m zipfile -l dist/*.whl | tee /tmp/wheel.txt
+          for entry in \
+            "django_ai_harness/data/cookiecutter-django.pin" \
+            "django_ai_harness/data/dev-requirements.txt" \
+            "django_ai_harness/data/pgbouncer/docker-compose.pgbouncer.yml" \
+            "django_ai_harness/wizard/wizard.tcss"
+          do
+            grep -q "$entry" /tmp/wheel.txt || {
+              echo "::error::$entry is missing from the wheel"
+              exit 1
+            }
+          done
+      - name: Installed console script works
+        run: |
+          uv tool install ./dist/*.whl
+          django-ai-harness info
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

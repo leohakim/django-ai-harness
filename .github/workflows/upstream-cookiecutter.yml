@@ -1,34 +1,136 @@
-name: Upstream cookiecutter-django drift
+name: Biweekly upstream drift review
+
+# Regenerates the example against cookiecutter-django's *tip* while day-to-day scripts
+# stay on the pinned commit. When upstream moves in a way that changes our output, this
+# opens (or updates) a tracking issue instead of writing a diff to a log nobody reads.
 
 on:
   schedule:
-    - cron: "0 6 * * 1"
+    - cron: "0 6 1,15 * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  regenerate:
+  drift:
+    name: Regenerate against cookiecutter-django master
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
-      - name: Install cookiecutter
-        run: uv tool install cookiecutter
-      - name: Refresh example against cookiecutter master tip
+          enable-cache: true
+      - run: uv python install 3.14
+
+      - name: Regenerate against upstream tip
+        id: regenerate
+        continue-on-error: true
         env:
-          # Intentional: detect drift vs pinned default used by new-project.sh
           COOKIECUTTER_DJANGO_REF: master
+        run: ./scripts/refresh-example.sh
+
+      - name: Collect the drift report
+        id: report
         run: |
-          chmod +x scripts/*.sh
-          ./scripts/refresh-example.sh
-      - name: Show diff vs committed example
-        run: |
-          git status --short
-          git diff --stat || true
-      - name: Fail if overlay cannot regenerate against master
-        run: |
-          test -f example/.django-ai-harness.json
-          test -f example/AGENTS.md
-          python3 -m py_compile overlay/apply.py
+          {
+            echo 'report<<REPORT'
+            if [ "${{ steps.regenerate.outcome }}" = "failure" ]; then
+              echo '**The overlay could not be applied to upstream tip.**'
+              echo 'This usually means cookiecutter-django renamed a file or a setting the'
+              echo 'overlay patches. See the workflow run for the traceback.'
+            else
+              echo '<details><summary>Diff against the pinned tree</summary>'
+              echo
+              echo '```diff'
+              git --no-pager diff --stat -- example ':(exclude)example/uv.lock' | head -100
+              echo '```'
+              echo '</details>'
+            fi
+            echo 'REPORT'
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "${{ steps.regenerate.outcome }}" = "failure" ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet -- example ':(exclude)example/uv.lock'; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the tracking issue
+        if: steps.report.outputs.drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Upstream drift: cookiecutter-django master';
+            const body = [
+              'The scheduled regeneration against `cookiecutter-django@master` differs from',
+              'the tree produced by the pinned commit in',
+              '`src/django_ai_harness/data/cookiecutter-django.pin`.',
+              '',
+              `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              ${{ toJSON(steps.report.outputs.report) }},
+              '',
+              '### How to resolve',
+              '',
+              '1. `COOKIECUTTER_DJANGO_REF=master ./scripts/refresh-example.sh`',
+              '2. Fix the overlay if upstream renamed a file or setting it patches.',
+              '3. Bump the pin, regenerate, and note the change in `CHANGELOG.md`.',
+              '',
+              '_Updated automatically; the pin is never bumped without review._',
+            ].join('\n');
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-drift',
+            });
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['upstream-drift'],
+              });
+            }
+
+      - name: Close the tracking issue when upstream matches again
+        if: steps.report.outputs.drift == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-drift',
+            });
+            for (const issue of existing.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: 'Upstream tip now regenerates identically to the pinned tree. Closing.',
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }

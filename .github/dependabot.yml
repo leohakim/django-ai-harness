@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # The DX dependencies the overlay installs into generated projects are reviewed by
+  # .github/workflows/dx-dependencies.yml instead, because a bump there has to be
+  # validated by regenerating the golden example.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"
+    labels: [dependencies]
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(deps)"
+    labels: [dependencies]

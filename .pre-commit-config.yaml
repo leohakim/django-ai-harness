@@ -1,0 +1,53 @@
+# A repository that ships developer-experience practices runs them on itself.
+#
+#   uv run pre-commit install
+default_install_hook_types: [pre-commit, commit-msg]
+
+exclude: ^example/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.2
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run --extra wizard pytest -q
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: no-book-text
+        name: no copyrighted book text
+        entry: >-
+          Do not commit excerpts from "Boost Your Django DX". Distil the practice into
+          knowledge/ and link to public documentation instead.
+        language: fail
+        files: '(?i)(boost[-_ ]your[-_ ]django[-_ ]dx).*\.(pdf|epub|zip|mobi)$'
+
+ci:
+  autoupdate_schedule: monthly
