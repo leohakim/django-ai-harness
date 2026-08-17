@@ -326,9 +326,18 @@ SPECTACULAR_SETTINGS = {
 # Your stuff...
 # ------------------------------------------------------------------------------
 
-# >>> django-ai-harness
-# Settings hygiene (django-ai-harness):
-# - Import django.conf.settings from app code, never this module directly.
-# - Do not mutate settings at runtime in request/business code.
-# - Keep secrets and environment-specific values in env vars / local.py / production.py.
-# <<< django-ai-harness
+# >>> django-ai-harness:base
+# Settings hygiene (see knowledge/dx-practices/settings.md):
+# - Import `django.conf.settings` from app code, never this module directly.
+# - Never mutate settings at runtime from request or business code.
+# - Keep secrets and environment-specific values in env vars, local.py or production.py.
+
+# django-linear-migrations and django-version-checks register *system checks*, so they
+# belong in base settings: that is the only way they also run under config.settings.test
+# (which imports base, not local) and therefore in CI.
+INSTALLED_APPS += ["django_linear_migrations", "django_version_checks"]
+
+VERSION_CHECKS = {
+    "python": "~=3.14.0",
+}
+# <<< django-ai-harness:base

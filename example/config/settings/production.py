@@ -160,9 +160,22 @@ SPECTACULAR_SETTINGS["SERVERS"] = [
 # ------------------------------------------------------------------------------
 
 # >>> django-ai-harness:pgbouncer
-# Opt-in PgBouncer (transaction pooling). Keep ENGINE=postgresql.
-# When USE_PGBOUNCER=True, point POSTGRES_HOST/PORT at the pooler and migrate via direct Postgres.
+# Opt-in transaction pooling. Inert unless USE_PGBOUNCER is set; the engine stays
+# PostgreSQL either way. See knowledge/dx-practices/postgres-pooling.md.
 if env.bool("USE_PGBOUNCER", default=False):
     DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=0)
+    # PgBouncer in transaction mode cannot hold server-side cursors across statements.
     DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+
+    # A direct, unpooled alias for DDL. Run migrations with:
+    #     python manage.py migrate --database=direct
+    # TEST["MIRROR"] keeps the test runner from creating a second test database.
+    DATABASES["direct"] = {
+        **DATABASES["default"],
+        "HOST": env("POSTGRES_HOST_DIRECT", default="postgres"),
+        "PORT": env.int("POSTGRES_PORT_DIRECT", default=5432),
+        "CONN_MAX_AGE": 0,
+        "DISABLE_SERVER_SIDE_CURSORS": False,
+        "TEST": {"MIRROR": "default"},
+    }
 # <<< django-ai-harness:pgbouncer

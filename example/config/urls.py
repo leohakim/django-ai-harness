@@ -70,12 +70,12 @@ if settings.DEBUG:
             *urlpatterns,
         ]
 
-# >>> django-ai-harness
+# >>> django-ai-harness:urls
 if settings.DEBUG:
     try:
-        urlpatterns += [
-            path("__reload__/", include("django_browser_reload.urls")),
-        ]
-    except Exception:  # pragma: no cover - defensive for partial installs
+        import django_browser_reload  # noqa: F401
+    except ImportError:  # pragma: no cover - dev extra not installed
         pass
-# <<< django-ai-harness
+    else:
+        urlpatterns += [path("__reload__/", include("django_browser_reload.urls"))]
+# <<< django-ai-harness:urls

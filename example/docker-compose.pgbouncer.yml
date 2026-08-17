@@ -1,26 +1,33 @@
 # Opt-in PgBouncer in front of cookiecutter-django's postgres service.
-# Usage (local):
-#   docker compose -f docker-compose.local.yml -f docker-compose.pgbouncer.yml up -d
-# Usage (production):
-#   docker compose -f docker-compose.production.yml -f docker-compose.pgbouncer.yml up -d
-#   # and set env_file below to ./.envs/.production/.postgres
 #
-# App env (see knowledge/dx-practices/postgres-pooling.md):
+# The engine stays PostgreSQL; this only adds a transaction-mode connection pooler so a
+# host with many workers stops paying for one Postgres backend process per connection.
+#
+# Local:
+#   docker compose -f docker-compose.local.yml -f docker-compose.pgbouncer.yml up -d
+#
+# Production (also switch env_file below to ./.envs/.production/.postgres):
+#   docker compose -f docker-compose.production.yml -f docker-compose.pgbouncer.yml up -d
+#
+# Application environment (the overlay writes these with --with-pgbouncer):
 #   USE_PGBOUNCER=True
 #   POSTGRES_HOST=pgbouncer
 #   POSTGRES_PORT=6432
 #   CONN_MAX_AGE=0
 #
-# Migrate against Postgres directly (bypass pooler):
-#   POSTGRES_HOST=postgres POSTGRES_PORT=5432 USE_PGBOUNCER=False ...
+# DDL must bypass the pooler. The overlay defines a `direct` database alias for that:
+#   python manage.py migrate --database=direct
+#
+# Configuration is env-driven: the edoburu image renders pgbouncer.ini and the auth file
+# from the DB_*/POOL_* variables below, so there is no ini to keep in sync. To run a
+# hand-written config instead, mount it over /etc/pgbouncer/pgbouncer.ini and drop the
+# custom entrypoint.
 
 services:
   pgbouncer:
     image: edoburu/pgbouncer:v1.23.1-p1
     depends_on:
       - postgres
-    # Default fragment targets local Compose. For production, override env_file:
-    #   env_file: ./.envs/.production/.postgres
     env_file:
       - ./.envs/.local/.postgres
     environment:
@@ -35,9 +42,14 @@ services:
     volumes:
       - ./compose/pgbouncer/entrypoint.sh:/entrypoint-harness.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint-harness.sh"]
-    # Bind localhost only — avoid exposing the pooler on all interfaces
+    # Bound to loopback: the pooler must never be reachable from other interfaces.
     ports:
       - "127.0.0.1:6432:6432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "6432", "-U", "${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   django:

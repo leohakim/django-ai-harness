@@ -1,7 +1,25 @@
 {
-  "overlay_version": "1.2.0",
   "harness": "django-ai-harness",
+  "overlay_version": "2.0.0",
   "features": {
     "pgbouncer": false
+  },
+  "managed_files": {
+    "AGENTS.md": "d26b8d98a53975884e6ef3cb07b6dfa7bf53d227bebd2a8fb42c27c05dbdc477",
+    "compose/pgbouncer/README.md": "4931f709b73f48622f26f05b8014e9292328fa911e993352492569a71775d43e",
+    "compose/pgbouncer/entrypoint.sh": "59638e999779402adc05682a1f7f568391b411d2d34afbc2e7800de860cd622a",
+    "compose/pgbouncer/postgres/tuning-medium.conf": "452d13735a8ac0caea220c1594948dd454b4fec950279e083b4ad8d80b14269d",
+    "compose/pgbouncer/postgres/tuning-small.conf": "a3767b36eb1393cfda3c34bec2fc4b3e7a1fc4b4ec14d4e1832e900d0f8d6619",
+    "docker-compose.pgbouncer.yml": "870b60bb4d9f31694c83e968629c6317335a4c7ee6db41fb20e82c04788d24b4",
+    "docs/django-ai-harness.md": "4f26b7ecf8a68c89a5d7d0ba166ad09e4147976a2cb88299c4660089a11ade18",
+    "harness_example/contrib/sites/migrations/max_migration.txt": "ac7f22cfe984d92cd7c5532edeee414027f695f8a03e30863a6a81ba5f27fee1",
+    "harness_example/tests/test_pending_migrations.py": "c417cc49b050e79efce5e239342561348d50ba540deaded2d1c5b8b0492a8bb8",
+    "harness_example/users/management/commands/seed_database.py": "bbcb6f5c6710c4edb36328abb63afeb0c6f1bb8c3bb540c0b7db70b41171d1fc",
+    "harness_example/users/migrations/max_migration.txt": "8333487313beb4ab56fc46ee332d09bbe8da8c8d5e3b5a6bcfee4c95f22729b3",
+    "harness_templates/app_skeleton/README.md": "e0c34073b68a22726794c8eb6e380816e3074c454b6a7b0443c2467a63fe7586",
+    "harness_templates/app_skeleton/apis/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "harness_templates/app_skeleton/apis/example.py": "934c9d65a6096ad2c5ecfdffa852574514c67e244460e2db55ea6f6054f4be6e",
+    "harness_templates/app_skeleton/selectors.py": "ad9e950ad96b7731b441e31f15c8475556fdd8f1189478d2cf0bbf1b9fa58003",
+    "harness_templates/app_skeleton/services.py": "e1a5ee227320417d1c0819811db098a724f2646b8be47f512595c2950035c9c9"
   }
 }

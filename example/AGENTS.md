@@ -1,27 +1,47 @@
 # AGENTS.md
 
-This project was bootstrapped with **cookiecutter-django** and **django-ai-harness**.
+Bootstrapped with [cookiecutter-django](https://github.com/cookiecutter/cookiecutter-django)
+and [django-ai-harness](https://github.com/leohakim/django-ai-harness).
 
-## Architecture (HackSoft)
+This file is the contract every agent working in this repository follows. It is owned by
+the harness overlay: edit it freely, but be aware that a locally edited copy stops
+receiving harness upgrades until you re-run the overlay with `--force`.
 
-- Business writes/workflows → `services.py` (or `services/`)
-- Business reads/queries → `selectors.py` (or `selectors/`)
-- HTTP layer stays thin (DRF APIs / views call services & selectors)
-- Do not put domain rules in serializers, signals, or `Model.save`
+## Architecture — HackSoft Django Styleguide
 
-See harness knowledge: `knowledge/architecture/hacksoft.md` in the django-ai-harness repo.
+| Concern | Home |
+|---|---|
+| Writes, workflows, side effects | `services.py` / `services/` |
+| Reads, filtering, visibility | `selectors.py` / `selectors/` |
+| HTTP input & output | thin APIs calling services and selectors |
+| Simple non-relational invariants | `Model.clean` or database constraints |
 
-## DX
+Business rules never live in views, serializers, forms, signals, `Model.save`, custom
+managers or querysets. See `harness_templates/app_skeleton/` for the reference layout.
 
-- Use `uv run` for commands
-- Keep Ruff + pre-commit green
-- Prefer `seed_database` + Factory Boy for local data
-- Re-apply overlay after harness upgrades
-- Optional low-RAM Postgres path: PgBouncer templates in `compose/pgbouncer/` (see harness `knowledge/dx-practices/postgres-pooling.md`)
+- Services take keyword-only arguments, call `full_clean()` before saving, and wrap
+  multi-step writes in `transaction.atomic`.
+- Selectors never mutate state.
+- Side effects that depend on committed rows run in `transaction.on_commit`.
+- Tests mirror the layers: `tests/services/`, `tests/selectors/`, `tests/apis/`.
+
+## Developer experience
+
+- Run everything through `uv run`; the lockfile is the source of truth.
+- Keep Ruff and pre-commit green before proposing a change.
+- Seed local data with `python manage.py seed_database` plus Factory Boy factories.
+- Migrations are linear: `django-linear-migrations` maintains `max_migration.txt`.
+  Resolve conflicts with `python manage.py rebase_migration <app>`.
+- `django-read-only` is available for safe shell sessions:
+  `import django_read_only; django_read_only.enable()`.
+
+## Harness
+
+- State lives in `.django-ai-harness.json`. Do not hand-edit it.
+- Upgrade with `django-ai-harness apply .` (add `--check` in CI to detect drift).
+- Optional PostgreSQL connection pooling lives in `compose/pgbouncer/`.
 
 ## Skills
 
-If Cursor skills from django-ai-harness are available, use:
-
-- `django-hacksoft` for feature work
-- `django-dx-review` before PRs
+If the harness Agent Skills are available, use `django-hacksoft` for feature work and
+`django-dx-review` before opening a pull request.
