@@ -34,7 +34,7 @@ classifiers = [
 dependencies = ["cookiecutter>=2.6"]
 
 [project.optional-dependencies]
-wizard = ["textual>=1.0,<7"]
+wizard = ["textual>=8.2.8,<9"]
 
 [project.urls]
 Homepage = "https://github.com/leohakim/django-ai-harness"
@@ -47,7 +47,7 @@ Changelog = "https://github.com/leohakim/django-ai-harness/blob/main/CHANGELOG.m
 django-ai-harness = "django_ai_harness.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.9", "textual>=1.0,<7"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.9", "textual>=8.2.8,<9"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/django_ai_harness"]
